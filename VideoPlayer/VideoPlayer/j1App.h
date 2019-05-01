@@ -15,6 +15,7 @@ class Input;
 class Render;
 class Textures;
 class Audio;
+class Video;
 
 class j1App
 {
@@ -86,6 +87,7 @@ public:
 	Render*			render;
 	Textures*		tex;
 	Audio*			audio;
+	Video*			video;
 
 private:
 

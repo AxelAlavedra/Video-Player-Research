@@ -10,6 +10,7 @@
 #include "Render.h"
 #include "Textures.h"
 #include "Audio.h"
+#include "Video.h"
 #include "Brofiler/Brofiler.h"
 #include "j1App.h"
 
@@ -25,6 +26,7 @@ j1App::j1App(int argc, char* args[]) : argc(argc), args(args)
 	render = new Render();
 	tex = new Textures();
 	audio = new Audio();
+	video = new Video();
 
 	// Ordered for awake / Start / Update
 	// Reverse order of CleanUp
@@ -32,6 +34,7 @@ j1App::j1App(int argc, char* args[]) : argc(argc), args(args)
 	AddModule(win);
 	AddModule(tex);
 	AddModule(audio);
+	AddModule(video);
 
 	// render last to swap buffer
 	AddModule(render);
