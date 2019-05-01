@@ -34,6 +34,7 @@
     <ClCompile Include="j1App.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
+    <ClCompile Include="Video.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Audio.h">
@@ -78,6 +79,7 @@
     <ClInclude Include="j1App.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Video.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Engine">
