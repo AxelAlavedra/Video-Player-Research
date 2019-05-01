@@ -17,6 +17,7 @@ extern "C" {
 
 #include "j1App.h"
 #include "Render.h"
+#include "Input.h"
 #include "Window.h"
 #include "p2Log.h"
 #include "Video.h"
@@ -41,10 +42,6 @@ bool Video::Awake()
 
 bool Video::Start()
 {
-	AVFormatContext* format = NULL;
-	AVCodecContext* codec_context = NULL;
-	AVCodec* codec = NULL;
-
 	std::string file = "videos/test_video.mp4";
 
 	//Open video file
@@ -58,27 +55,27 @@ bool Video::Start()
 		return -1; // Couldn't find stream information
 
 	// Find the first video stream
-	int videoStream = -1;
+	video_stream = -1;
 	for (int i = 0; i < format->nb_streams; i++)
 	{
 		if (format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-			videoStream = i;
+			video_stream = i;
 			break;
 		}
 	}
-	if (videoStream == -1)
+	if (video_stream == -1)
 		return -1; // Didn't find a video stream
 			
 
 	// Find the decoder for the video stream
-	codec = avcodec_find_decoder(format->streams[videoStream]->codecpar->codec_id);
+	codec = avcodec_find_decoder(format->streams[video_stream]->codecpar->codec_id);
 	if (codec == NULL) {
 		LOG("Unsupported codec!\n");
 	}
 
 	codec_context = avcodec_alloc_context3(codec);
 	// Parameter to context
-	if (avcodec_parameters_to_context(codec_context, format->streams[videoStream]->codecpar) != 0) {
+	if (avcodec_parameters_to_context(codec_context, format->streams[video_stream]->codecpar) != 0) {
 		LOG("Failed parameters to context");
 	}
 
@@ -89,8 +86,8 @@ bool Video::Start()
 	}
 
 	// Allocate video frame
-	AVFrame *frame = av_frame_alloc();
-	AVPacket *pkt = av_packet_alloc();
+	frame = av_frame_alloc();
+	pkt = av_packet_alloc();
 	av_init_packet(pkt);
 	if (!pkt)
 	{
@@ -105,24 +102,6 @@ bool Video::Start()
 	texture = SDL_CreateTexture(App->render->renderer, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING,
 		codec_context->width, codec_context->height);
 
-	while (1)
-	{
-		// read an encoded packet from file
-		if (av_read_frame(format, pkt) < 0)
-		{
-			av_log(NULL, AV_LOG_ERROR, "cannot read frame");
-			break;
-		}
-		// if packet data is video data then send it to decoder
-		if (pkt->stream_index == videoStream)
-		{
-			Decode(codec_context, frame, pkt);
-			break;
-		}
-
-		// release packet buffers to be allocated again
-		av_packet_unref(pkt);
-	}
 
 	return true;
 }
@@ -134,6 +113,28 @@ bool Video::PreUpdate()
 
 bool Video::Update(float dt)
 {
+	if (App->input->GetKey(SDL_SCANCODE_F1) == KEY_DOWN)
+		pause = !pause;
+
+	while (!pause)
+	{
+		// read an encoded packet from file
+		if (av_read_frame(format, pkt) < 0)
+		{
+			av_log(NULL, AV_LOG_ERROR, "cannot read frame");
+			break;
+		}
+		// if packet data is video data then send it to decoder
+		if (pkt->stream_index == video_stream)
+		{
+			DecodeVideo(codec_context, frame, pkt);
+			break;
+		}
+
+		// release packet buffers to be allocated again
+		av_packet_unref(pkt);
+	}
+
 	return true;
 }
 
@@ -149,15 +150,10 @@ bool Video::CleanUp()
 }
 
 
-void Video::Decode(AVCodecContext* context, AVFrame* frame, AVPacket *pkt)
+void Video::DecodeVideo(AVCodecContext* context, AVFrame* frame, AVPacket *pkt)
 {
-	uint w, h;
-	App->win->GetWindowSize(w, h);
-
-	int ret;
-
 	//send packet to decoder
-	ret = avcodec_send_packet(context, pkt);
+	int ret = avcodec_send_packet(context, pkt);
 	if (ret < 0) {
 		LOG("Error sending packet for decoding");
 	}
@@ -168,21 +164,11 @@ void Video::Decode(AVCodecContext* context, AVFrame* frame, AVPacket *pkt)
 		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
 			return;
 		else if (ret < 0) {
-			// something wrong, quit program
 			LOG("Error during decoding");
 		}
 
-		/*sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
-			frame->linesize, 0, context->height,
-			frame->data, frame->linesize);*/
-		DisplayFrame(frame, context);
+		//Update video texture
+		SDL_UpdateYUVTexture(texture, nullptr, frame->data[0], frame->linesize[0], frame->data[1], 
+			frame->linesize[1], frame->data[2], frame->linesize[2]);
 	}
-}
-
-void Video::DisplayFrame(AVFrame* frame, AVCodecContext* context)
-{
-	SDL_UpdateYUVTexture(texture, nullptr, frame->data[0], frame->linesize[0], frame->data[1], frame->linesize[1], frame->data[2], frame->linesize[2]);
-	/*SDL_RenderClear(App->render->renderer);
-	SDL_RenderCopy(App->render->renderer, texture, NULL, NULL);
-	SDL_RenderPresent(App->render->renderer);*/
 }
