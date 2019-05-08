@@ -39,15 +39,10 @@ private:
 	int audio_stream = -1;
 	bool pause = false;
 
-	void DecodeVideo(AVCodecContext* context, AVFrame* frame, AVPacket *pkt);
+	int frame_ratio = 0;
+	int frame_amount = 0;
 
-	int yPlaneSz;
-	int uvPlaneSz;
-	Uint8* yPlane;
-	Uint8* uPlane;
-	Uint8* vPlane;
-	Uint8* aPlane;
-	int uvPitch;
+	void DecodeVideo();
 };
 
 #endif
