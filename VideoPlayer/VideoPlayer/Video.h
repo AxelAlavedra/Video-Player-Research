@@ -3,15 +3,16 @@
 
 struct SDL_Texture;
 class AVFormatContext;
-class AVCodecContext;
-class AVCodec;
+struct AVStream;
 class AVFrame;
+class AVCodecContext;
 class AVPacket;
 struct SwsContext;
 struct SwrContext;
 struct AVPacketList;
 
 #include "Module.h"
+#include "Timer.h"
 
 struct PacketQueue {
 	AVPacketList *first_pkt, *last_pkt;
@@ -30,7 +31,7 @@ class Video : public Module
 public:
 	Video();
 	~Video();
-	bool Awake();
+	bool Awake(pugi::xml_node&);
 	bool Start();
 	bool PreUpdate();
 	bool Update(float dt);
@@ -45,10 +46,10 @@ public:
 private:
 	SDL_Texture* texture = nullptr;
 
-	AVCodecContext* video_codec_context = nullptr;
-	AVCodecContext* audio_codec_context = nullptr;
-	AVCodec* video_codec = nullptr;
-	AVCodec* audio_codec = nullptr;
+	AVStream* video_stream = nullptr;
+	AVStream* audio_stream = nullptr;
+	AVCodecContext* video_context = nullptr;
+	AVCodecContext* audio_context = nullptr;
 	SwsContext* sws_context = nullptr;
 	SwrContext* swr_context = nullptr;
 
@@ -61,18 +62,22 @@ private:
 	AVPacket* audio_pkt = nullptr;
 
 	SDL_Thread* parse_thread_id;
-	SDL_Thread* video_thread_id;
 
 	int frame_amount = 0;
 	int frame_ratio = 0;
+
+	double frame_timer = 0;
+
+	Timer video_timer;
+	double audio_clock;
 
 public:
 	AVFormatContext * format = nullptr;
 	bool pause = false;
 	bool quit = false;
 	std::string file = "";
-	int video_stream = -1;
-	int audio_stream = -1;
+	int video_stream_index = -1;
+	int audio_stream_index = -1;
 
 	PacketQueue audio_pktqueue;
 	PacketQueue video_pktqueue;
