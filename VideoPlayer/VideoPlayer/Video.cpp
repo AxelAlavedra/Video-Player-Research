@@ -222,7 +222,7 @@ void Video::DecodeVideo()
 	double delay = abs(video_clock - audio_clock); //SCAAAARY
 
 	LOG("Video frame seconds %f", video_frame->pts*av_q2d(video_stream->time_base));
-	LOG("Audio clock %f", GetAudioClock());
+	LOG("Audio clock %f", audio_clock);
 	LOG("Calculated delay %f", delay);
 	LOG("Repeat pict %i",video_frame->repeat_pict);
 
