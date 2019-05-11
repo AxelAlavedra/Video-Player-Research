@@ -124,7 +124,7 @@ bool Video::Awake(pugi::xml_node&)
 
 bool Video::Start()
 {
-	file = "videos/audio_video.mp4";
+	file = "videos/test_video.mp4";
 
 	//Open video file
 	if (avformat_open_input(&format, file.c_str(), NULL, NULL) != 0)
@@ -219,12 +219,12 @@ void Video::DecodeVideo()
 		video_scaled_frame->linesize[1], video_scaled_frame->data[2], video_scaled_frame->linesize[2]);
 
 	double video_clock = video_frame->pts*av_q2d(video_stream->time_base);
-	double delay = abs(video_clock - audio_clock); //SCAAAARY
+	double delay = video_clock - audio_clock; //SCAAAARY
 
 	LOG("Video frame seconds %f", video_frame->pts*av_q2d(video_stream->time_base));
 	LOG("Audio clock %f", audio_clock);
 	LOG("Calculated delay %f", delay);
-	LOG("Repeat pict %i",video_frame->repeat_pict);
+	LOG("Repeat pict %i", video_frame->repeat_pict);
 
 	SDL_AddTimer(delay * 1000 + 0.5, (SDL_TimerCallback)VideoCallback, this);
 
@@ -242,7 +242,6 @@ int Video::DecodeAudio()
 
 	if (avcodec_send_packet(audio_context, audio_pkt) < 0) {
 		LOG("Error sending packet for decoding");
-		av_packet_unref(audio_pkt);
 		return -1;
 	}
 
@@ -252,7 +251,7 @@ int Video::DecodeAudio()
 		return -1;
 	
 	len2 = swr_convert(swr_context,
-		converted_audio_frame->data,		// output
+		converted_audio_frame->data,	// output
 		audio_frame->nb_samples,
 		(const uint8_t**)audio_frame->data,  // input
 		audio_frame->nb_samples);
@@ -309,8 +308,6 @@ void Video::OpenStream(int stream_index)
 		video_frame = av_frame_alloc();
 		video_scaled_frame = av_frame_alloc();
 
-		frame_timer = av_q2d(av_get_time_base_q()) / 1000000.0;
-
 		uint dst_w, dst_h;
 		App->win->GetWindowSize(dst_w, dst_h);
 
@@ -332,6 +329,7 @@ void Video::OpenStream(int stream_index)
 		video_pktqueue.Init();
 
 		SDL_AddTimer(40, (SDL_TimerCallback)VideoCallback, this);
+
 		break;
 	case AVMEDIA_TYPE_AUDIO:
 		audio_stream = format->streams[stream_index];
@@ -374,6 +372,7 @@ void Video::OpenStream(int stream_index)
 
 		audio_pktqueue.Init();
 		SDL_PauseAudio(0);
+
 		break;
 	}
 }
