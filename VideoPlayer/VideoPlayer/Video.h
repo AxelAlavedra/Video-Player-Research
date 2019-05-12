@@ -18,12 +18,14 @@ struct PacketQueue {
 	AVPacketList *first_pkt, *last_pkt;
 	int nb_packets;
 	int size;
-	SDL_mutex* mutex;
-	SDL_cond* cond;
+	SDL_mutex* mutex = nullptr;
+	SDL_cond* cond = nullptr;
 
 	void Init();
 	int PutPacket(AVPacket* pkt);
 	int GetPacket(AVPacket* pkt);
+	int Clear();
+	bool pause = false;
 };
 
 class Video : public Module
@@ -39,9 +41,12 @@ public:
 	bool CleanUp();
 
 
+	int PlayVideo(std::string file_path);
+
 	void DecodeVideo();
 	int DecodeAudio();
 	void OpenStream(int stream_index);
+	bool Pause();
 
 private:
 	SDL_Texture* texture = nullptr;
@@ -59,23 +64,19 @@ private:
 	AVFrame* audio_frame = nullptr;
 	AVFrame* converted_audio_frame = nullptr;
 
-	AVPacket* audio_pkt = nullptr;
-
 	SDL_Thread* parse_thread_id;
 
-	int frame_amount = 0;
-	int frame_ratio = 0;
-
-	double frame_timer = 0;
-
-	Timer video_timer;
 	double audio_clock;
+
+	void CleanVideo();
 
 public:
 	AVFormatContext * format = nullptr;
 	bool pause = false;
+	bool playing = false;
 	bool quit = false;
 	std::string file = "";
+
 	int video_stream_index = -1;
 	int audio_stream_index = -1;
 
