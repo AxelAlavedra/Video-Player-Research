@@ -32,7 +32,7 @@ void AudioCallback(void *userdata, Uint8 *stream, int len) {
 	Video *video = (Video*)userdata;
 	int len1, audio_size;
 
-	while (len > 0 && video->playing) {
+	while (len > 0) {
 		if (video->audio_buf_index >= video->audio_buf_size) {
 			/* We have already sent all our data; get more */
 			audio_size = video->DecodeAudio();
@@ -94,8 +94,7 @@ int DecodeThread(void *param) {
 		{
 			player->audio_pktqueue.PutPacket(&pkt); // if packet data is audio we add to audio queue
 		}
-
-		av_packet_unref(&pkt); // unsuported stream, release the packet
+		else av_packet_unref(&pkt); // unsuported stream, release the packet
 	}
 	av_packet_unref(&pkt);
 
@@ -120,6 +119,8 @@ bool Video::Awake(pugi::xml_node&)
 
 bool Video::Start()
 {
+	texture_cond = SDL_CreateCond();
+	texture_mutex = SDL_CreateMutex();
 	return true;
 }
 
@@ -131,7 +132,7 @@ bool Video::PreUpdate()
 bool Video::Update(float dt)
 {
 	if (App->input->GetKey(SDL_SCANCODE_F1) == KEY_DOWN && !playing)
-		PlayVideo("videos/test1080.mp4");
+		PlayVideo("videos/WoW_WotLK_CinematicIntro.avi");
 
 	if (App->input->GetKey(SDL_SCANCODE_F2) == KEY_DOWN && playing)
 		Pause();
@@ -144,8 +145,10 @@ bool Video::Update(float dt)
 
 bool Video::PostUpdate()
 {
-	if(playing)
+	if (playing)
+	{
 		App->render->Blit(texture, 0, 0, nullptr);
+	}
 
 	return true;
 }
@@ -339,6 +342,7 @@ void Video::CleanVideo()
 
 
 	SDL_DestroyTexture(texture);
+	texture = nullptr;
 	SDL_CloseAudio();
 	audio_pktqueue.Clear();
 	video_pktqueue.Clear();
@@ -361,7 +365,6 @@ void Video::DecodeVideo()
 		return;
 	}
 
-
 	//send packet to video decoder
 	ret = avcodec_send_packet(video_context, &pkt);
 	if (ret < 0)
@@ -370,15 +373,21 @@ void Video::DecodeVideo()
 		av_packet_unref(&pkt);
 		return;
 	}
-
 	// receive frame from decoder
 	// we may receive multiple frames or we may consume all data from decoder, then return to main loop
-	avcodec_receive_frame(video_context, video_frame);
+	ret = avcodec_receive_frame(video_context, video_frame);
+
 	sws_scale(sws_context, video_frame->data,
 		video_frame->linesize, 0, video_frame->height, video_scaled_frame->data, video_scaled_frame->linesize);
+
+
+	SDL_LockMutex(texture_mutex);
 	//Update video texture
 	SDL_UpdateYUVTexture(texture, nullptr, video_scaled_frame->data[0], video_scaled_frame->linesize[0], video_scaled_frame->data[1],
 		video_scaled_frame->linesize[1], video_scaled_frame->data[2], video_scaled_frame->linesize[2]);
+	SDL_CondSignal(texture_cond);
+	SDL_UnlockMutex(texture_mutex);
+
 
 	//Calculate time for next video frame in seconds
 	double video_clock = video_frame->pts*av_q2d(video_stream->time_base);
@@ -395,6 +404,7 @@ void Video::DecodeVideo()
 	SDL_AddTimer(delay * 1000 + 0.5, (SDL_TimerCallback)VideoCallback, this);
 
 	av_packet_unref(&pkt);
+	
 }
 
 int Video::DecodeAudio()
@@ -403,43 +413,37 @@ int Video::DecodeAudio()
 	int ret;
 	int len2, data_size = 0;
 
-	while (true)
-	{
-		if (!playing)
-			return -1;
-		if (audio_pktqueue.GetPacket(&pkt) < 0)
-			return -1;
+	if (!playing)
+		return -1;
+	if (audio_pktqueue.GetPacket(&pkt) < 0)
+		return -1;
 
-		ret = avcodec_send_packet(audio_context, &pkt);
-		if (ret) return ret;
+	ret = avcodec_send_packet(audio_context, &pkt);
+	if (ret) return ret;
 
-		while (!ret)
-		{
-			ret = avcodec_receive_frame(audio_context, audio_frame);
+	ret = avcodec_receive_frame(audio_context, audio_frame);
 
-			len2 = swr_convert(swr_context,
-				converted_audio_frame->data,	// output
-				audio_frame->nb_samples,
-				(const uint8_t**)audio_frame->data,  // input
-				audio_frame->nb_samples);
 
-			// returns the number of samples per channel in one audio frame
-			data_size = av_samples_get_buffer_size(NULL,
-				audio_context->channels,
-				audio_frame->nb_samples,
-				AV_SAMPLE_FMT_FLT,
-				1);
+	len2 = swr_convert(swr_context,
+		converted_audio_frame->data,	// output
+		audio_frame->nb_samples,
+		(const uint8_t**)audio_frame->data,  // input
+		audio_frame->nb_samples);
 
-			memcpy(audio_buf, converted_audio_frame->data[0], data_size);
+	// returns the number of samples per channel in one audio frame
+	data_size = av_samples_get_buffer_size(NULL,
+		audio_context->channels,
+		audio_frame->nb_samples,
+		AV_SAMPLE_FMT_FLT,
+		1);
 
-			audio_clock = av_q2d(audio_stream->time_base)*audio_frame->pts;
+	memcpy(audio_buf, converted_audio_frame->data[0], data_size);
 
-			/* We have data, return it and come back for more later */
-			av_packet_unref(&pkt);
-			return data_size;
-		}
-	}
-	return -1;
+	audio_clock = av_q2d(audio_stream->time_base)*audio_frame->pts;
+
+	/* We have data, return it and come back for more later */
+	av_packet_unref(&pkt);
+	return data_size;
 }
 
 void PacketQueue::Init()

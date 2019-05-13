@@ -67,6 +67,8 @@ private:
 	SDL_Thread* parse_thread_id;
 
 	double audio_clock;
+	SDL_mutex* texture_mutex;
+	SDL_cond* texture_cond;
 
 	void CleanVideo();
 
