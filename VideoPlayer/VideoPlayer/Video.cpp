@@ -315,7 +315,6 @@ bool Video::Pause()
 	{
 		audio_pktqueue.pause = pause;
 		video_pktqueue.pause = pause;
-		SDL_AddTimer(0.01, (SDL_TimerCallback)VideoCallback, this);
 	}
 
 	return true;
@@ -476,6 +475,7 @@ int PacketQueue::PutPacket(AVPacket* pkt)
 	pkt_list->pkt = new_pkt;
 	pkt_list->next = NULL;
 
+	SDL_LockMutex(mutex);
 	if (!last_pkt)
 		first_pkt = pkt_list;
 	else
@@ -484,6 +484,9 @@ int PacketQueue::PutPacket(AVPacket* pkt)
 	last_pkt = pkt_list;
 	nb_packets++;
 	size += pkt_list->pkt.size;
+
+	SDL_CondSignal(cond);
+	SDL_UnlockMutex(mutex);
 
 	return 0;
 }
