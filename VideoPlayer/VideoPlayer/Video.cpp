@@ -196,6 +196,7 @@ int Video::PlayVideo(std::string file_path)
 
 	playing = true;
 	parse_thread_id = SDL_CreateThread(DecodeThread, "DecodeThread", this);
+	SDL_AddTimer(40, (SDL_TimerCallback)VideoCallback, this);
 }
 
 void Video::OpenStream(int stream_index)
@@ -253,9 +254,8 @@ void Video::OpenStream(int stream_index)
 		texture = SDL_CreateTexture(App->render->renderer, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING,
 			dst_w, dst_h);
 
-		video_pktqueue.Init();
 
-		SDL_AddTimer(40, (SDL_TimerCallback)VideoCallback, this);
+		video_pktqueue.Init();
 
 		break;
 	case AVMEDIA_TYPE_AUDIO:
@@ -267,10 +267,10 @@ void Video::OpenStream(int stream_index)
 		converted_audio_frame = av_frame_alloc();
 
 		wanted_spec.freq = codec_context->sample_rate;
-		wanted_spec.format = AUDIO_F32;
+		wanted_spec.format = AUDIO_S16SYS;
 		wanted_spec.channels = codec_context->channels;
 		wanted_spec.silence = 0;
-		wanted_spec.samples = 8192;
+		wanted_spec.samples = 1024;
 		wanted_spec.callback = AudioCallback;
 		wanted_spec.userdata = this;
 
@@ -278,26 +278,17 @@ void Video::OpenStream(int stream_index)
 			LOG("SDL_OpenAudio: %s\n", SDL_GetError());
 		}
 
-
-		swr_context = swr_alloc();
-		//Unlike libavcodec and libavformat, this structure is opaque. This means that if you would like to set options, you must use the AVOptions API and cannot directly set values to members of the structure.
-		av_opt_set_int(swr_context, "in_channel_layout", codec_context->channel_layout, 0); // mono or streo or something else
-		av_opt_set_int(swr_context, "out_channel_layout", codec_context->channel_layout, 0);
-
-		av_opt_set_int(swr_context, "in_sample_rate", codec_context->sample_rate, 0); // number of samples in one second
-		av_opt_set_int(swr_context, "out_sample_rate", codec_context->sample_rate, 0);
-
-		av_opt_set_sample_fmt(swr_context, "in_sample_fmt", codec_context->sample_fmt, 0);  // data structure of samples, data size // float planar
-		av_opt_set_sample_fmt(swr_context, "out_sample_fmt", AV_SAMPLE_FMT_FLT, 0); // float
+		swr_context = swr_alloc_set_opts(NULL, codec_context->channel_layout, AV_SAMPLE_FMT_FLT, codec_context->sample_rate,
+			codec_context->channel_layout, codec_context->sample_fmt, codec_context->sample_rate, 0, NULL);
+		swr_init(swr_context);
 
 		//Get buffer to output converted audio
 		converted_audio_frame->format = AV_SAMPLE_FMT_FLT; // Format used for SDL Audio
 		converted_audio_frame->channel_layout = codec_context->channel_layout;
-		converted_audio_frame->nb_samples = 8192;
-		if (av_frame_get_buffer(converted_audio_frame, 1) < 0)
-			LOG("ERROR GETTING CONVERT BUFFER");
+		converted_audio_frame->nb_samples = 1024;
+		av_frame_get_buffer(converted_audio_frame, 1);
 
-		swr_init(swr_context);
+
 
 		audio_pktqueue.Init();
 		SDL_PauseAudio(0);
@@ -366,7 +357,7 @@ void Video::DecodeVideo()
 		return;
 	if (video_pktqueue.GetPacket(&pkt) < 0)
 	{
-		SDL_AddTimer(80, (SDL_TimerCallback)VideoCallback, this);
+		SDL_AddTimer(1, (SDL_TimerCallback)VideoCallback, this);
 		return;
 	}
 
@@ -379,13 +370,12 @@ void Video::DecodeVideo()
 		av_packet_unref(&pkt);
 		return;
 	}
+
 	// receive frame from decoder
 	// we may receive multiple frames or we may consume all data from decoder, then return to main loop
 	avcodec_receive_frame(video_context, video_frame);
-
 	sws_scale(sws_context, video_frame->data,
 		video_frame->linesize, 0, video_frame->height, video_scaled_frame->data, video_scaled_frame->linesize);
-
 	//Update video texture
 	SDL_UpdateYUVTexture(texture, nullptr, video_scaled_frame->data[0], video_scaled_frame->linesize[0], video_scaled_frame->data[1],
 		video_scaled_frame->linesize[1], video_scaled_frame->data[2], video_scaled_frame->linesize[2]);
