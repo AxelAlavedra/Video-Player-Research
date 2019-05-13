@@ -32,7 +32,7 @@ void AudioCallback(void *userdata, Uint8 *stream, int len) {
 	Video *video = (Video*)userdata;
 	int len1, audio_size;
 
-	while (len > 0) {
+	while (len > 0 && video->playing) {
 		if (video->audio_buf_index >= video->audio_buf_size) {
 			/* We have already sent all our data; get more */
 			audio_size = video->DecodeAudio();
@@ -326,12 +326,13 @@ void Video::CleanVideo()
 	playing = false;
 	audio_pktqueue.pause = true;
 	video_pktqueue.pause = true;
+	SDL_CondSignal(audio_pktqueue.cond);
+	SDL_CondSignal(video_pktqueue.cond);
 
 	SDL_Delay(40);
 
 	if(!pause)
 		SDL_PauseAudio(0);
-
 
 	sws_freeContext(sws_context);
 	sws_context = nullptr;
@@ -365,7 +366,11 @@ void Video::DecodeVideo()
 	if (!playing)
 		return;
 	if (video_pktqueue.GetPacket(&pkt) < 0)
+	{
+		SDL_AddTimer(80, (SDL_TimerCallback)VideoCallback, this);
 		return;
+	}
+
 
 	//send packet to video decoder
 	ret = avcodec_send_packet(video_context, &pkt);
@@ -488,6 +493,7 @@ int PacketQueue::GetPacket(AVPacket* pkt)
 	AVPacketList *pkt_list;
 	int ret;
 
+	SDL_LockMutex(mutex);
 	while (true)
 	{
 		if (pause) {
@@ -508,8 +514,11 @@ int PacketQueue::GetPacket(AVPacket* pkt)
 			ret = 1;
 			break;
 		}
+		else {
+			SDL_CondWait(cond, mutex);
+		}
 	}	
-
+	SDL_UnlockMutex(mutex);
 	return ret;
 }
 
