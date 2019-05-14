@@ -60,15 +60,14 @@ int VideoCallback(Uint32 interval, void* param)
 {
 	Video* player = (Video*)param;
 
-	if(player->playing)
-		player->DecodeVideo();
+	player->refresh = true;
 
 	return 0;
 }
 
 int DecodeThread(void *param) {
 	Video* player = (Video*)param;
-	AVPacket pkt;
+	AVPacket pkt1, *pkt = &pkt1;
 
 	while (player->playing)
 	{
@@ -80,24 +79,22 @@ int DecodeThread(void *param) {
 		}
 
 		// read an encoded packet from file
-		if (av_read_frame(player->format, &pkt) < 0)
+		if (av_read_frame(player->format, pkt) < 0)
 		{
 			LOG("Error reading packet");
 			break;
 		}
 
-		if (pkt.stream_index == player->video_stream_index) // if packet data is video we add to video queue
+		if (pkt->stream_index == player->video_stream_index) // if packet data is video we add to video queue
 		{
-			player->video_pktqueue.PutPacket(&pkt);
+			player->video_pktqueue.PutPacket(pkt);
 		}
-		else if (pkt.stream_index == player->audio_stream_index)
+		else if (pkt->stream_index == player->audio_stream_index)
 		{
-			player->audio_pktqueue.PutPacket(&pkt); // if packet data is audio we add to audio queue
+			player->audio_pktqueue.PutPacket(pkt); // if packet data is audio we add to audio queue
 		}
-		else av_packet_unref(&pkt); // unsuported stream, release the packet
+		av_packet_unref(pkt); // unsuported stream, release the packet
 	}
-	av_packet_unref(&pkt);
-
 	return 0;
 }
 
@@ -132,7 +129,7 @@ bool Video::PreUpdate()
 bool Video::Update(float dt)
 {
 	if (App->input->GetKey(SDL_SCANCODE_F1) == KEY_DOWN && !playing)
-		PlayVideo("videos/WoW_WotLK_CinematicIntro.avi");
+		PlayVideo("videos/Warcraft III_ Reforged Cinematic Trailer.mp4");
 
 	if (App->input->GetKey(SDL_SCANCODE_F2) == KEY_DOWN && playing)
 		Pause();
@@ -140,6 +137,12 @@ bool Video::Update(float dt)
 	if (App->input->GetKey(SDL_SCANCODE_F3) == KEY_DOWN && playing)
 		CleanVideo();
 
+
+	if (refresh)
+	{
+		refresh = false;
+		DecodeVideo();
+	}
 	return true;
 }
 
@@ -147,9 +150,9 @@ bool Video::PostUpdate()
 {
 	if (playing)
 	{
-		App->render->Blit(texture, 0, 0, nullptr);
+		if(texture)
+			App->render->Blit(texture, 0, 0, nullptr);
 	}
-
 	return true;
 }
 
@@ -273,7 +276,7 @@ void Video::OpenStream(int stream_index)
 		wanted_spec.format = AUDIO_S16SYS;
 		wanted_spec.channels = codec_context->channels;
 		wanted_spec.silence = 0;
-		wanted_spec.samples = 1024;
+		wanted_spec.samples = 1148;
 		wanted_spec.callback = AudioCallback;
 		wanted_spec.userdata = this;
 
@@ -288,9 +291,8 @@ void Video::OpenStream(int stream_index)
 		//Get buffer to output converted audio
 		converted_audio_frame->format = AV_SAMPLE_FMT_FLT; // Format used for SDL Audio
 		converted_audio_frame->channel_layout = codec_context->channel_layout;
-		converted_audio_frame->nb_samples = 1024;
-		av_frame_get_buffer(converted_audio_frame, 1);
-
+		converted_audio_frame->nb_samples = 1148;
+		av_frame_get_buffer(converted_audio_frame, 0);
 
 
 		audio_pktqueue.Init();
@@ -303,13 +305,10 @@ void Video::OpenStream(int stream_index)
 bool Video::Pause()
 {
 	pause = !pause;
-	SDL_PauseAudio(0);
 
-	if (playing)
-	{
-		audio_pktqueue.pause = pause;
-		video_pktqueue.pause = pause;
-	}
+	SDL_PauseAudio(0);
+	audio_pktqueue.pause = pause;
+	video_pktqueue.pause = pause;
 
 	return true;
 }
@@ -319,35 +318,42 @@ void Video::CleanVideo()
 	playing = false;
 	audio_pktqueue.pause = true;
 	video_pktqueue.pause = true;
-	SDL_CondSignal(audio_pktqueue.cond);
+
+	SDL_WaitThread(parse_thread_id, NULL);
 	SDL_CondSignal(video_pktqueue.cond);
+	SDL_CondSignal(audio_pktqueue.cond);
 
 	SDL_Delay(40);
 
 	if(!pause)
 		SDL_PauseAudio(0);
 
+	video_pktqueue.Clear();
+	audio_pktqueue.Clear();
+
+
 	sws_freeContext(sws_context);
 	sws_context = nullptr;
 	swr_free(&swr_context);
+
 	av_frame_free(&video_frame);
 	av_frame_free(&video_scaled_frame);
 	av_frame_free(&audio_frame);
 	av_frame_free(&converted_audio_frame);
+
 	avcodec_close(audio_context);
 	avcodec_close(video_context);
 	avcodec_free_context(&audio_context);
 	avcodec_free_context(&video_context);
 	avformat_close_input(&format);
 
-
 	SDL_DestroyTexture(texture);
 	texture = nullptr;
 	SDL_CloseAudio();
-	audio_pktqueue.Clear();
-	video_pktqueue.Clear();
 	audio_buf_index = 0;
 	audio_buf_size = 0;
+	video_clock = 0;
+	audio_clock = 0;
 	video_stream_index = -1;
 	audio_stream_index = -1;
 }
@@ -370,13 +376,10 @@ void Video::DecodeVideo()
 	if (ret < 0)
 	{
 		LOG("Error sending packet for decoding");
-		av_packet_unref(&pkt);
 		return;
 	}
-	// receive frame from decoder
-	// we may receive multiple frames or we may consume all data from decoder, then return to main loop
-	ret = avcodec_receive_frame(video_context, video_frame);
 
+	ret = avcodec_receive_frame(video_context, video_frame);
 	sws_scale(sws_context, video_frame->data,
 		video_frame->linesize, 0, video_frame->height, video_scaled_frame->data, video_scaled_frame->linesize);
 
@@ -388,23 +391,28 @@ void Video::DecodeVideo()
 	SDL_CondSignal(texture_cond);
 	SDL_UnlockMutex(texture_mutex);
 
+	double pts = video_frame->pts;
+	if (pts == AV_NOPTS_VALUE)
+	{
+		pts = video_clock +
+			(1.f / av_q2d(video_stream->avg_frame_rate)) / av_q2d(video_stream->time_base);
+	}
+	video_clock = pts;
 
-	//Calculate time for next video frame in seconds
-	double video_clock = video_frame->pts*av_q2d(video_stream->time_base);
-	double delay = video_clock - audio_clock;
+
+	double delay = (video_clock*av_q2d(video_stream->time_base)) - (audio_clock*av_q2d(audio_stream->time_base));
 	if (delay < 0.010)
-		delay = 0.010;
+		delay = 0.010; //Maybe skip frame if video is too far behind from audio instead of fast refresh.
 
-	LOG("Video frame seconds %f", video_frame->pts*av_q2d(video_stream->time_base));
-	LOG("Audio clock %f", audio_clock);
-	LOG("Calculated delay %f", delay);
-	LOG("Repeat pict %i", video_frame->repeat_pict);
+	static char title[256];
+	sprintf_s(title, 256, " Video seconds: %.2f Audio seconds: %.2f Calculated delay %.2f",
+		video_clock*av_q2d(video_stream->time_base), audio_clock*av_q2d(audio_stream->time_base), delay);
+	App->win->SetTitle(title);
+
 
 	//Prepare VideoCallback on ms
-	SDL_AddTimer(delay * 1000 + 0.5, (SDL_TimerCallback)VideoCallback, this);
-
+	SDL_AddTimer((Uint32)(delay * 1000 + 0.5), (SDL_TimerCallback)VideoCallback, this);
 	av_packet_unref(&pkt);
-	
 }
 
 int Video::DecodeAudio()
@@ -413,37 +421,50 @@ int Video::DecodeAudio()
 	int ret;
 	int len2, data_size = 0;
 
-	if (!playing)
-		return -1;
-	if (audio_pktqueue.GetPacket(&pkt) < 0)
-		return -1;
+	while (true)
+	{
+		if (!playing)
+			return -1;
+		if (audio_pktqueue.GetPacket(&pkt) < 0)
+			return -1;
 
-	ret = avcodec_send_packet(audio_context, &pkt);
-	if (ret) return ret;
+		ret = avcodec_send_packet(audio_context, &pkt);
+		if (ret<0) return ret;
 
-	ret = avcodec_receive_frame(audio_context, audio_frame);
+		while (ret >= 0) {
+			ret = avcodec_receive_frame(audio_context, audio_frame);
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+				break;
+			}
+			len2 = swr_convert(swr_context,
+				converted_audio_frame->data,	// output
+				audio_frame->nb_samples,
+				(const uint8_t**)audio_frame->data,  // input
+				audio_frame->nb_samples);
 
+			// returns the number of samples per channel in one audio frame
+			data_size = av_samples_get_buffer_size(NULL,
+				audio_context->channels,
+				audio_frame->nb_samples,
+				AV_SAMPLE_FMT_FLT,
+				1);
 
-	len2 = swr_convert(swr_context,
-		converted_audio_frame->data,	// output
-		audio_frame->nb_samples,
-		(const uint8_t**)audio_frame->data,  // input
-		audio_frame->nb_samples);
+			memcpy(audio_buf, converted_audio_frame->data[0], data_size);
 
-	// returns the number of samples per channel in one audio frame
-	data_size = av_samples_get_buffer_size(NULL,
-		audio_context->channels,
-		audio_frame->nb_samples,
-		AV_SAMPLE_FMT_FLT,
-		1);
+			double pts = audio_frame->pts;
+			if (pts == AV_NOPTS_VALUE)
+			{
+				pts = audio_clock +
+					(1.f / av_q2d(audio_stream->avg_frame_rate)) / av_q2d(audio_stream->time_base);
+			}
+			audio_clock = pts;
 
-	memcpy(audio_buf, converted_audio_frame->data[0], data_size);
-
-	audio_clock = av_q2d(audio_stream->time_base)*audio_frame->pts;
-
-	/* We have data, return it and come back for more later */
-	av_packet_unref(&pkt);
-	return data_size;
+			/* We have data, return it and come back for more later */
+			av_packet_unref(&pkt);
+			return data_size;
+		}
+	}
+	return -1;
 }
 
 void PacketQueue::Init()
@@ -458,9 +479,10 @@ int PacketQueue::PutPacket(AVPacket* pkt)
 	AVPacketList *pkt_list;
 	AVPacket new_pkt;
 
-	if (av_packet_ref(&new_pkt, pkt) < 0) {
+	if (pause)
 		return -1;
-	}
+
+	av_packet_ref(&new_pkt, pkt);
 
 	pkt_list = (AVPacketList*)av_malloc(sizeof(AVPacketList));
 	if (!pkt_list)
@@ -522,7 +544,6 @@ int PacketQueue::GetPacket(AVPacket* pkt)
 int PacketQueue::Clear()
 {
 	AVPacketList *pkt, *pkt1;
-
 	SDL_LockMutex(mutex);
 	for (pkt = first_pkt; pkt != NULL; pkt = pkt1) {
 		pkt1 = pkt->next;

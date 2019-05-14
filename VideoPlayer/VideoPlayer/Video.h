@@ -60,20 +60,23 @@ private:
 
 	AVFrame* video_frame = nullptr;
 	AVFrame* video_scaled_frame = nullptr;
-
 	AVFrame* audio_frame = nullptr;
 	AVFrame* converted_audio_frame = nullptr;
 
 	SDL_Thread* parse_thread_id;
 
 	double audio_clock;
+	double video_clock;
+
 	SDL_mutex* texture_mutex;
 	SDL_cond* texture_cond;
 
 	void CleanVideo();
 
+
 public:
 	AVFormatContext * format = nullptr;
+	bool refresh = false;
 	bool pause = false;
 	bool playing = false;
 	bool quit = false;
