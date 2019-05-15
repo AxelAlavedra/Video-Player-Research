@@ -65,7 +65,7 @@ int VideoCallback(Uint32 interval, void* param)
 	return 0;
 }
 
-int DecodeThread(void *param) {
+int ReadThread(void *param) {
 	Video* player = (Video*)param;
 	AVPacket pkt;
 	int ret = 0;
@@ -202,17 +202,18 @@ int Video::PlayVideo(std::string file_path)
 	if (video_stream == -1)
 		LOG("No video stream found");
 	else
-		OpenStreamComponent(video_stream);
+		OpenStreamComponent(video_stream); //Open video component
 
 	if (audio_stream == -1)
 		LOG("No audio stream found");
 	else
-		OpenStreamComponent(audio_stream);
+		OpenStreamComponent(audio_stream); //Open audio component
 
+	//Everything went fine
 	LOG("Video file loaded correctly, now playing: %s", file);
 	playing = true;
-	parse_thread_id = SDL_CreateThread(DecodeThread, "DecodeThread", this);
-	SDL_AddTimer(40, (SDL_TimerCallback)VideoCallback, this);
+	parse_thread_id = SDL_CreateThread(ReadThread, "ReadThread", this); //Start packet reading thread
+	SDL_AddTimer(40, (SDL_TimerCallback)VideoCallback, this); //First video callback
 }
 
 void Video::OpenStreamComponent(int stream_index)
@@ -269,7 +270,6 @@ void Video::OpenStreamComponent(int stream_index)
 		texture = SDL_CreateTexture(App->render->renderer, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING,
 			dst_w, dst_h);
 
-
 		video.pktqueue.Init();
 
 		break;
@@ -306,7 +306,6 @@ void Video::OpenStreamComponent(int stream_index)
 		audio.converted_frame->channel_layout = audio.context->channel_layout;
 		audio.converted_frame->nb_samples = audio.context->frame_size;
 		av_frame_get_buffer(audio.converted_frame, 0);
-
 
 		audio.pktqueue.Init();
 		SDL_PauseAudio(0);
@@ -571,6 +570,9 @@ int PacketQueue::Clear()
 	size = 0;
 	SDL_UnlockMutex(mutex);
 
+	SDL_DestroyMutex(mutex);
+	SDL_DestroyCond(cond);
+
 	return 0;
 }
 
@@ -586,4 +588,5 @@ void StreamComponent::Clear()
 	clock = 0;
 	stream_index = -1;
 	finished = false;
+
 }
