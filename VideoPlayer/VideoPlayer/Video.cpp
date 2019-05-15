@@ -133,7 +133,7 @@ bool Video::Update(float dt)
 {
 	//DEBUG INPUTS
 	if (App->input->GetKey(SDL_SCANCODE_F1) == KEY_DOWN)
-		PlayVideo("videos/Video03_Neva__neu (1).mp4");
+		PlayVideo("videos/World of Warcraft Wrath of the Lich King Intro Trailer.mp4");
 	if (App->input->GetKey(SDL_SCANCODE_F2) == KEY_DOWN)
 		Pause();
 	if (App->input->GetKey(SDL_SCANCODE_F3) == KEY_DOWN)
