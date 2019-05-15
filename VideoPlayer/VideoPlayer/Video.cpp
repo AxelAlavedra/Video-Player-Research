@@ -23,22 +23,22 @@ extern "C" {
 #include "p2Log.h"
 #include "Video.h"
 
-#define AVCODEC_MAX_AUDIO_FRAME_SIZE 192000
+#define DEFAULT_AUDIO_BUF_SIZE 1024
 #define MAX_AUDIOQ_SIZE (5 * 256 * 1024)
 #define MAX_VIDEOQ_SIZE (5 * 512 * 1024)
 
-void AudioCallback(void *userdata, Uint8 *stream, int len) {
+void AudioCallback(void *userdata, Uint8 *stream, int length) {
 
 	Video *video = (Video*)userdata;
-	int len1, audio_size;
+	int input_length, audio_size;
 
-	while (len > 0) {
+	while (length > 0) {
 		if (video->audio_buf_index >= video->audio_buf_size) {
-			/* We have already sent all our data; get more */
+			// All audio data sent. Get more.
 			audio_size = video->DecodeAudio();
 			if (audio_size < 0) {
-				/* If error, output silence */
-				video->audio_buf_size = 1024;
+				// If an error occured decoding, we output silence (0)
+				video->audio_buf_size = DEFAULT_AUDIO_BUF_SIZE;
 				memset(video->audio_buf, 0, video->audio_buf_size);
 			}
 			else {
@@ -46,54 +46,54 @@ void AudioCallback(void *userdata, Uint8 *stream, int len) {
 			}
 			video->audio_buf_index = 0;
 		}
-		len1 = video->audio_buf_size - video->audio_buf_index;
-		if (len1 > len)
-			len1 = len;
-		memcpy(stream, (uint8_t *)video->audio_buf + video->audio_buf_index, len1);
-		len -= len1;
-		stream += len1;
-		video->audio_buf_index += len1;
+		input_length = video->audio_buf_size - video->audio_buf_index;
+		if (input_length > length)
+			input_length = length;
+		memcpy(stream, (uint8_t *)video->audio_buf + video->audio_buf_index, input_length);
+		length -= input_length;
+		stream += input_length;
+		video->audio_buf_index += input_length;
 	}
 }
 
 int VideoCallback(Uint32 interval, void* param)
 {
 	Video* player = (Video*)param;
-
-	player->refresh = true;
+	if(player->playing)
+		player->refresh = true;
 
 	return 0;
 }
 
 int DecodeThread(void *param) {
 	Video* player = (Video*)param;
-	AVPacket pkt1, *pkt = &pkt1;
+	AVPacket pkt;
 
 	while (player->playing)
 	{
-		if (player->audio_pktqueue.size >= MAX_AUDIOQ_SIZE 
-			|| player->video_pktqueue.size >= MAX_VIDEOQ_SIZE)
+		if (player->audio.pktqueue.size >= MAX_AUDIOQ_SIZE 
+			|| player->video.pktqueue.size >= MAX_VIDEOQ_SIZE)
 		{
-			Sleep(10);
+			SDL_Delay(10);
 			continue;
 		}
 
 		// read an encoded packet from file
-		if (av_read_frame(player->format, pkt) < 0)
+		if (av_read_frame(player->format, &pkt) < 0)
 		{
 			LOG("Error reading packet");
 			break;
 		}
 
-		if (pkt->stream_index == player->video_stream_index) // if packet data is video we add to video queue
+		if (pkt.stream_index == player->video.stream_index) // if packet data is video we add to video queue
 		{
-			player->video_pktqueue.PutPacket(pkt);
+			player->video.pktqueue.PutPacket(&pkt);
 		}
-		else if (pkt->stream_index == player->audio_stream_index)
+		else if (pkt.stream_index == player->audio.stream_index)
 		{
-			player->audio_pktqueue.PutPacket(pkt); // if packet data is audio we add to audio queue
+			player->audio.pktqueue.PutPacket(&pkt); // if packet data is audio we add to audio queue
 		}
-		av_packet_unref(pkt); // unsuported stream, release the packet
+		av_packet_unref(&pkt); // unsuported stream, release the packet
 	}
 	return 0;
 }
@@ -116,8 +116,6 @@ bool Video::Awake(pugi::xml_node&)
 
 bool Video::Start()
 {
-	texture_cond = SDL_CreateCond();
-	texture_mutex = SDL_CreateMutex();
 	return true;
 }
 
@@ -128,21 +126,21 @@ bool Video::PreUpdate()
 
 bool Video::Update(float dt)
 {
-	if (App->input->GetKey(SDL_SCANCODE_F1) == KEY_DOWN && !playing)
-		PlayVideo("videos/Warcraft III_ Reforged Cinematic Trailer.mp4");
-
-	if (App->input->GetKey(SDL_SCANCODE_F2) == KEY_DOWN && playing)
+	//DEBUG INPUTS
+	if (App->input->GetKey(SDL_SCANCODE_F1) == KEY_DOWN)
+		PlayVideo("videos/World of Warcraft Wrath of the Lich King Intro Trailer.mp4");
+	if (App->input->GetKey(SDL_SCANCODE_F2) == KEY_DOWN)
 		Pause();
+	if (App->input->GetKey(SDL_SCANCODE_F3) == KEY_DOWN)
+		CloseVideo();
 
-	if (App->input->GetKey(SDL_SCANCODE_F3) == KEY_DOWN && playing)
-		CleanVideo();
-
-
+	//Update texture
 	if (refresh)
 	{
-		refresh = false;
 		DecodeVideo();
+		refresh = false;
 	}
+
 	return true;
 }
 
@@ -150,8 +148,7 @@ bool Video::PostUpdate()
 {
 	if (playing)
 	{
-		if(texture)
-			App->render->Blit(texture, 0, 0, nullptr);
+		App->render->Blit(texture, 0, 0, nullptr);
 	}
 	return true;
 }
@@ -159,13 +156,19 @@ bool Video::PostUpdate()
 bool Video::CleanUp()
 {
 	if(playing)
-		CleanVideo();
+		CloseVideo();
 
 	return true;
 }
 
 int Video::PlayVideo(std::string file_path)
 {
+	if (playing)
+	{
+		LOG("Already playing video");
+		return -1;
+	}
+
 	file = file_path;
 
 	//Open video file
@@ -174,42 +177,41 @@ int Video::PlayVideo(std::string file_path)
 		LOG("Error loading video file %s", file);
 		return -1;
 	}
-	else
-		LOG("Video file loaded correctly");
 
 	// Retrieve stream information
 	if (avformat_find_stream_info(format, NULL) <0)
 		return -1; // Couldn't find stream information
 
-				   // Find video and audio streams
+	int video_stream = -1, audio_stream = -1;
+	// Find video and audio streams
 	for (int i = 0; i < format->nb_streams; i++)
 	{
-		if (format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && video_stream_index < 0)
-			video_stream_index = i;
-		else if (format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO && audio_stream_index < 0)
-			audio_stream_index = i;
+		if (format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && video_stream < 0)
+			video_stream = i;
+		else if (format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO && audio_stream < 0)
+			audio_stream = i;
 	}
 
-	if (video_stream_index == -1)
+	if (video_stream == -1)
 		LOG("No video stream found");
 	else
-		OpenStream(video_stream_index);
+		OpenStreamComponent(video_stream);
 
-	if (audio_stream_index == -1)
+	if (audio_stream == -1)
 		LOG("No audio stream found");
 	else
-		OpenStream(audio_stream_index);
+		OpenStreamComponent(audio_stream);
 
+	LOG("Video file loaded correctly, now playing: %s", file);
 	playing = true;
 	parse_thread_id = SDL_CreateThread(DecodeThread, "DecodeThread", this);
 	SDL_AddTimer(40, (SDL_TimerCallback)VideoCallback, this);
 }
 
-void Video::OpenStream(int stream_index)
+void Video::OpenStreamComponent(int stream_index)
 {
 	AVCodecContext *codec_context;
 	AVCodec *codec;
-	SDL_AudioSpec wanted_spec, spec;
 
 	if (stream_index < 0 || stream_index >= format->nb_streams) {
 		LOG("Error not valid stream index");
@@ -235,21 +237,21 @@ void Video::OpenStream(int stream_index)
 	switch (codec_context->codec_type)
 	{
 	case AVMEDIA_TYPE_VIDEO:
-		video_stream = format->streams[stream_index];
-		video_context = codec_context;
-		video_stream_index = stream_index;
+		video.stream = format->streams[stream_index];
+		video.context = codec_context;
+		video.stream_index = stream_index;
 
-		video_frame = av_frame_alloc();
-		video_scaled_frame = av_frame_alloc();
+		video.frame = av_frame_alloc();
+		video.converted_frame = av_frame_alloc();
 
 		uint dst_w, dst_h;
 		App->win->GetWindowSize(dst_w, dst_h);
 
 		//Prepare scaling frame.
-		video_scaled_frame->format = AVPixelFormat::AV_PIX_FMT_YUV420P; // Format used for SDL
-		video_scaled_frame->width = dst_w; //width of window
-		video_scaled_frame->height = dst_h; //height of window
-		av_frame_get_buffer(video_scaled_frame, 0); //get buffers for YUV format
+		video.converted_frame->format = AVPixelFormat::AV_PIX_FMT_YUV420P; // Format used for SDL
+		video.converted_frame->width = dst_w; //width of window
+		video.converted_frame->height = dst_h; //height of window
+		av_frame_get_buffer(video.converted_frame, 0); //get buffers for YUV format
 
 		//Get context to scale video frames to format, width and height of our SDL window.
 		sws_context = sws_getContext(codec_context->width, codec_context->height, codec_context->pix_fmt,
@@ -261,22 +263,25 @@ void Video::OpenStream(int stream_index)
 			dst_w, dst_h);
 
 
-		video_pktqueue.Init();
+		video.pktqueue.Init();
 
 		break;
 	case AVMEDIA_TYPE_AUDIO:
-		audio_stream = format->streams[stream_index];
-		audio_context = codec_context;
-		audio_stream_index = stream_index;
+		SDL_AudioSpec wanted_spec, spec;
 
-		audio_frame = av_frame_alloc();
-		converted_audio_frame = av_frame_alloc();
+		audio.stream = format->streams[stream_index];
+		audio.context = codec_context;
+		audio.stream_index = stream_index;
 
-		wanted_spec.freq = codec_context->sample_rate;
+		audio.frame = av_frame_alloc();
+		audio.converted_frame = av_frame_alloc();
+
+		//Fill wanted specs for sdl audio
+		wanted_spec.freq = audio.context->sample_rate;
 		wanted_spec.format = AUDIO_S16SYS;
-		wanted_spec.channels = codec_context->channels;
+		wanted_spec.channels = audio.context->channels;
 		wanted_spec.silence = 0;
-		wanted_spec.samples = 1148;
+		wanted_spec.samples = DEFAULT_AUDIO_BUF_SIZE;
 		wanted_spec.callback = AudioCallback;
 		wanted_spec.userdata = this;
 
@@ -284,18 +289,19 @@ void Video::OpenStream(int stream_index)
 			LOG("SDL_OpenAudio: %s\n", SDL_GetError());
 		}
 
-		swr_context = swr_alloc_set_opts(NULL, codec_context->channel_layout, AV_SAMPLE_FMT_FLT, codec_context->sample_rate,
-			codec_context->channel_layout, codec_context->sample_fmt, codec_context->sample_rate, 0, NULL);
+		//Prepare conversion context
+		swr_context = swr_alloc_set_opts(NULL, audio.context->channel_layout, AV_SAMPLE_FMT_FLT, audio.context->sample_rate,
+			audio.context->channel_layout, audio.context->sample_fmt, audio.context->sample_rate, 0, NULL);
 		swr_init(swr_context);
 
 		//Get buffer to output converted audio
-		converted_audio_frame->format = AV_SAMPLE_FMT_FLT; // Format used for SDL Audio
-		converted_audio_frame->channel_layout = codec_context->channel_layout;
-		converted_audio_frame->nb_samples = 1148;
-		av_frame_get_buffer(converted_audio_frame, 0);
+		audio.converted_frame->format = AV_SAMPLE_FMT_FLT; // Format used for SDL Audio
+		audio.converted_frame->channel_layout = audio.context->channel_layout;
+		audio.converted_frame->nb_samples = audio.context->frame_size;
+		av_frame_get_buffer(audio.converted_frame, 0);
 
 
-		audio_pktqueue.Init();
+		audio.pktqueue.Init();
 		SDL_PauseAudio(0);
 
 		break;
@@ -304,47 +310,41 @@ void Video::OpenStream(int stream_index)
 
 bool Video::Pause()
 {
-	pause = !pause;
+	if (!playing)
+		return false;
+
+	paused = !paused;
 
 	SDL_PauseAudio(0);
-	audio_pktqueue.pause = pause;
-	video_pktqueue.pause = pause;
+	audio.pktqueue.paused = paused;
+	video.pktqueue.paused = paused;
+
+	if(paused) LOG("Video paused");
+	else LOG("Video resumed");
 
 	return true;
 }
 
-void Video::CleanVideo()
+void Video::CloseVideo()
 {
+	if (!playing)
+		return;
+
 	playing = false;
-	audio_pktqueue.pause = true;
-	video_pktqueue.pause = true;
+	audio.pktqueue.paused = true;
+	video.pktqueue.paused = true;
 
+	SDL_CondSignal(video.pktqueue.cond); //In case queue is waiting for new pkts
+	SDL_CondSignal(audio.pktqueue.cond); //In case queue is waiting for new pkts
 	SDL_WaitThread(parse_thread_id, NULL);
-	SDL_CondSignal(video_pktqueue.cond);
-	SDL_CondSignal(audio_pktqueue.cond);
 
-	SDL_Delay(40);
-
-	if(!pause)
-		SDL_PauseAudio(0);
-
-	video_pktqueue.Clear();
-	audio_pktqueue.Clear();
-
+	video.Clear();
+	audio.Clear();
 
 	sws_freeContext(sws_context);
 	sws_context = nullptr;
 	swr_free(&swr_context);
 
-	av_frame_free(&video_frame);
-	av_frame_free(&video_scaled_frame);
-	av_frame_free(&audio_frame);
-	av_frame_free(&converted_audio_frame);
-
-	avcodec_close(audio_context);
-	avcodec_close(video_context);
-	avcodec_free_context(&audio_context);
-	avcodec_free_context(&video_context);
 	avformat_close_input(&format);
 
 	SDL_DestroyTexture(texture);
@@ -352,10 +352,8 @@ void Video::CleanVideo()
 	SDL_CloseAudio();
 	audio_buf_index = 0;
 	audio_buf_size = 0;
-	video_clock = 0;
-	audio_clock = 0;
-	video_stream_index = -1;
-	audio_stream_index = -1;
+
+	LOG("Video closed");
 }
 
 void Video::DecodeVideo()
@@ -365,53 +363,52 @@ void Video::DecodeVideo()
 
 	if (!playing)
 		return;
-	if (video_pktqueue.GetPacket(&pkt) < 0)
+	if (video.pktqueue.GetPacket(&pkt) < 0)
 	{
 		SDL_AddTimer(1, (SDL_TimerCallback)VideoCallback, this);
 		return;
 	}
 
 	//send packet to video decoder
-	ret = avcodec_send_packet(video_context, &pkt);
+	ret = avcodec_send_packet(video.context, &pkt);
 	if (ret < 0)
 	{
-		LOG("Error sending packet for decoding");
+		LOG("Error sending video packet for decoding");
 		return;
 	}
 
-	ret = avcodec_receive_frame(video_context, video_frame);
-	sws_scale(sws_context, video_frame->data,
-		video_frame->linesize, 0, video_frame->height, video_scaled_frame->data, video_scaled_frame->linesize);
+	ret = avcodec_receive_frame(video.context, video.frame);
 
+	//Scale texture
+	sws_scale(sws_context, video.frame->data, video.frame->linesize, 
+		0, video.frame->height, video.converted_frame->data, video.converted_frame->linesize);
 
-	SDL_LockMutex(texture_mutex);
 	//Update video texture
-	SDL_UpdateYUVTexture(texture, nullptr, video_scaled_frame->data[0], video_scaled_frame->linesize[0], video_scaled_frame->data[1],
-		video_scaled_frame->linesize[1], video_scaled_frame->data[2], video_scaled_frame->linesize[2]);
-	SDL_CondSignal(texture_cond);
-	SDL_UnlockMutex(texture_mutex);
+	SDL_UpdateYUVTexture(texture, nullptr, video.converted_frame->data[0], video.converted_frame->linesize[0], video.converted_frame->data[1],
+		video.converted_frame->linesize[1], video.converted_frame->data[2], video.converted_frame->linesize[2]);
 
-	double pts = video_frame->pts;
+	double pts = video.frame->pts;
 	if (pts == AV_NOPTS_VALUE)
 	{
-		pts = video_clock +
-			(1.f / av_q2d(video_stream->avg_frame_rate)) / av_q2d(video_stream->time_base);
+		pts = video.clock +
+			(1.f / av_q2d(video.stream->avg_frame_rate)) / av_q2d(video.stream->time_base);
 	}
-	video_clock = pts;
+	video.clock = pts;
 
+	double delay = (video.clock*av_q2d(video.stream->time_base)) - (audio.clock*av_q2d(audio.stream->time_base));
+	if (delay < 0.01)
+		delay = 0.01; //Maybe skip frame if video is too far behind from audio instead of fast refresh.
 
-	double delay = (video_clock*av_q2d(video_stream->time_base)) - (audio_clock*av_q2d(audio_stream->time_base));
-	if (delay < 0.010)
-		delay = 0.010; //Maybe skip frame if video is too far behind from audio instead of fast refresh.
-
+	//Debug information setup
 	static char title[256];
 	sprintf_s(title, 256, " Video seconds: %.2f Audio seconds: %.2f Calculated delay %.2f",
-		video_clock*av_q2d(video_stream->time_base), audio_clock*av_q2d(audio_stream->time_base), delay);
+		video.clock*av_q2d(video.stream->time_base), audio.clock*av_q2d(audio.stream->time_base), delay);
 	App->win->SetTitle(title);
 
 
 	//Prepare VideoCallback on ms
 	SDL_AddTimer((Uint32)(delay * 1000 + 0.5), (SDL_TimerCallback)VideoCallback, this);
+
 	av_packet_unref(&pkt);
 }
 
@@ -421,55 +418,51 @@ int Video::DecodeAudio()
 	int ret;
 	int len2, data_size = 0;
 
-	while (true)
+	if (!playing)
+		return -1;
+	if (audio.pktqueue.GetPacket(&pkt) < 0)
+		return -1;
+
+	ret = avcodec_send_packet(audio.context, &pkt);
+	if (ret < 0)
 	{
-		if (!playing)
-			return -1;
-		if (audio_pktqueue.GetPacket(&pkt) < 0)
-			return -1;
-
-		ret = avcodec_send_packet(audio_context, &pkt);
-		if (ret<0) return ret;
-
-		while (ret >= 0) {
-			ret = avcodec_receive_frame(audio_context, audio_frame);
-			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-				break;
-			}
-			len2 = swr_convert(swr_context,
-				converted_audio_frame->data,	// output
-				audio_frame->nb_samples,
-				(const uint8_t**)audio_frame->data,  // input
-				audio_frame->nb_samples);
-
-			// returns the number of samples per channel in one audio frame
-			data_size = av_samples_get_buffer_size(NULL,
-				audio_context->channels,
-				audio_frame->nb_samples,
-				AV_SAMPLE_FMT_FLT,
-				1);
-
-			memcpy(audio_buf, converted_audio_frame->data[0], data_size);
-
-			double pts = audio_frame->pts;
-			if (pts == AV_NOPTS_VALUE)
-			{
-				pts = audio_clock +
-					(1.f / av_q2d(audio_stream->avg_frame_rate)) / av_q2d(audio_stream->time_base);
-			}
-			audio_clock = pts;
-
-			/* We have data, return it and come back for more later */
-			av_packet_unref(&pkt);
-			return data_size;
-		}
+		LOG("Error sending audio pkt to decode");
+		return -1;
 	}
-	return -1;
+
+	ret = avcodec_receive_frame(audio.context, audio.frame);
+
+	swr_convert(swr_context,
+		audio.converted_frame->data,	// output
+		audio.frame->nb_samples,
+		(const uint8_t**)audio.frame->data,  // input
+		audio.frame->nb_samples);
+
+	// returns the number of samples per channel in one audio frame
+	data_size = av_samples_get_buffer_size(NULL,
+		audio.context->channels,
+		audio.frame->nb_samples,
+		AV_SAMPLE_FMT_FLT,
+		1);
+
+	memcpy(audio_buf, audio.converted_frame->data[0], data_size);
+
+	double pts = audio.frame->pts;
+	if (pts == AV_NOPTS_VALUE)
+	{
+		pts = audio.clock +
+			(1.f / av_q2d(audio.stream->avg_frame_rate)) / av_q2d(audio.stream->time_base);
+	}
+	audio.clock = pts;
+
+	/* We have data, return it and come back for more later */
+	av_packet_unref(&pkt);
+	return data_size;
 }
 
 void PacketQueue::Init()
 {
-	pause = false;
+	paused = false;
 	mutex = SDL_CreateMutex();
 	cond = SDL_CreateCond();
 }
@@ -479,7 +472,7 @@ int PacketQueue::PutPacket(AVPacket* pkt)
 	AVPacketList *pkt_list;
 	AVPacket new_pkt;
 
-	if (pause)
+	if (paused)
 		return -1;
 
 	av_packet_ref(&new_pkt, pkt);
@@ -515,7 +508,7 @@ int PacketQueue::GetPacket(AVPacket* pkt)
 	SDL_LockMutex(mutex);
 	while (true)
 	{
-		if (pause) {
+		if (paused) {
 			ret = -1;
 			break;
 		}
@@ -534,7 +527,7 @@ int PacketQueue::GetPacket(AVPacket* pkt)
 			break;
 		}
 		else {
-			SDL_CondWait(cond, mutex);
+			SDL_CondWait(cond, mutex); //Wait for pkt
 		}
 	}	
 	SDL_UnlockMutex(mutex);
@@ -557,4 +550,17 @@ int PacketQueue::Clear()
 	SDL_UnlockMutex(mutex);
 
 	return 0;
+}
+
+void StreamComponent::Clear()
+{
+	pktqueue.Clear();
+
+	av_frame_free(&frame);
+	av_frame_free(&converted_frame);
+
+	avcodec_free_context(&context);
+
+	clock = 0;
+	stream_index = -1;
 }

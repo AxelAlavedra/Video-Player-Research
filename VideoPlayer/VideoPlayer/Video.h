@@ -3,16 +3,15 @@
 
 struct SDL_Texture;
 class AVFormatContext;
-struct AVStream;
 class AVFrame;
 class AVCodecContext;
-class AVPacket;
+struct AVStream;
 struct SwsContext;
 struct SwrContext;
+struct AVPacket;
 struct AVPacketList;
 
 #include "Module.h"
-#include "Timer.h"
 
 struct PacketQueue {
 	AVPacketList *first_pkt, *last_pkt;
@@ -20,12 +19,26 @@ struct PacketQueue {
 	int size;
 	SDL_mutex* mutex = nullptr;
 	SDL_cond* cond = nullptr;
+	bool paused = false;
 
 	void Init();
 	int PutPacket(AVPacket* pkt);
 	int GetPacket(AVPacket* pkt);
 	int Clear();
-	bool pause = false;
+};
+
+struct StreamComponent
+{
+	AVStream* stream = nullptr;
+	AVCodecContext* context = nullptr;
+	AVFrame* frame = nullptr;
+	AVFrame* converted_frame = nullptr;
+	PacketQueue pktqueue;
+
+	double clock = 0.0;
+	int stream_index = 0;
+
+	void Clear();
 };
 
 class Video : public Module
@@ -40,58 +53,40 @@ public:
 	bool PostUpdate();
 	bool CleanUp();
 
-
 	int PlayVideo(std::string file_path);
-
-	void DecodeVideo();
-	int DecodeAudio();
-	void OpenStream(int stream_index);
 	bool Pause();
+	void CloseVideo();
+
+	//Dont call this function yourself
+	int DecodeAudio();
+
+private:
+	void OpenStreamComponent(int stream_index);
+	void DecodeVideo();
+
+public:
+	StreamComponent audio;
+	StreamComponent video;
+	AVFormatContext* format = nullptr;
+
+	bool refresh = false;
+	bool playing = false;
+	bool paused = false;
+	bool quit = false;
+	std::string file = "";
+
+	//Audio stream stuff
+	uint8_t audio_buf[(192000 * 3) / 2]; //I should move this to a struct or class...
+	unsigned int audio_buf_size = 0; //I should move this to a struct or class...
+	unsigned int audio_buf_index = 0; //I should move this to a struct or class...
 
 private:
 	SDL_Texture* texture = nullptr;
 
-	AVStream* video_stream = nullptr;
-	AVStream* audio_stream = nullptr;
-	AVCodecContext* video_context = nullptr;
-	AVCodecContext* audio_context = nullptr;
 	SwsContext* sws_context = nullptr;
 	SwrContext* swr_context = nullptr;
 
-	AVFrame* video_frame = nullptr;
-	AVFrame* video_scaled_frame = nullptr;
-	AVFrame* audio_frame = nullptr;
-	AVFrame* converted_audio_frame = nullptr;
-
 	SDL_Thread* parse_thread_id;
-
-	double audio_clock;
-	double video_clock;
-
-	SDL_mutex* texture_mutex;
-	SDL_cond* texture_cond;
-
-	void CleanVideo();
-
-
-public:
-	AVFormatContext * format = nullptr;
-	bool refresh = false;
-	bool pause = false;
-	bool playing = false;
-	bool quit = false;
-	std::string file = "";
-
-	int video_stream_index = -1;
-	int audio_stream_index = -1;
-
-	PacketQueue audio_pktqueue;
-	PacketQueue video_pktqueue;
-
-	//audio stream stuff
-	uint8_t audio_buf[(192000 * 3) / 2]; //TODO move this to a struct or class
-	unsigned int audio_buf_size = 0; //TODO move this to a struct or class
-	unsigned int audio_buf_index = 0; //TODO move this to a struct or class
 };
 
 #endif
