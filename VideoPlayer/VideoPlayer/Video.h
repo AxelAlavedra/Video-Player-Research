@@ -20,10 +20,11 @@ struct PacketQueue {
 	SDL_mutex* mutex = nullptr;
 	SDL_cond* cond = nullptr;
 	bool paused = false;
+	bool finish = false;
 
 	void Init();
 	int PutPacket(AVPacket* pkt);
-	int GetPacket(AVPacket* pkt);
+	int GetPacket(AVPacket* pkt, bool block);
 	int Clear();
 };
 
@@ -37,6 +38,7 @@ struct StreamComponent
 
 	double clock = 0.0;
 	int stream_index = 0;
+	bool finished = false;
 
 	void Clear();
 };

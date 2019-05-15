@@ -32,7 +32,7 @@ void AudioCallback(void *userdata, Uint8 *stream, int length) {
 	Video *video = (Video*)userdata;
 	int input_length, audio_size;
 
-	while (length > 0) {
+	while (length > 0 && video->playing) {
 		if (video->audio_buf_index >= video->audio_buf_size) {
 			// All audio data sent. Get more.
 			audio_size = video->DecodeAudio();
@@ -68,6 +68,7 @@ int VideoCallback(Uint32 interval, void* param)
 int DecodeThread(void *param) {
 	Video* player = (Video*)param;
 	AVPacket pkt;
+	int ret = 0;
 
 	while (player->playing)
 	{
@@ -79,9 +80,12 @@ int DecodeThread(void *param) {
 		}
 
 		// read an encoded packet from file
-		if (av_read_frame(player->format, &pkt) < 0)
+		ret = av_read_frame(player->format, &pkt);
+		if (ret < 0)
 		{
-			LOG("Error reading packet");
+			if (ret == AVERROR_EOF) LOG("Finished reading packets");
+			else LOG("Error reading packet");
+			player->quit = true;
 			break;
 		}
 
@@ -93,8 +97,9 @@ int DecodeThread(void *param) {
 		{
 			player->audio.pktqueue.PutPacket(&pkt); // if packet data is audio we add to audio queue
 		}
-		av_packet_unref(&pkt); // unsuported stream, release the packet
+		av_packet_unref(&pkt); // release the packet
 	}
+
 	return 0;
 }
 
@@ -128,7 +133,7 @@ bool Video::Update(float dt)
 {
 	//DEBUG INPUTS
 	if (App->input->GetKey(SDL_SCANCODE_F1) == KEY_DOWN)
-		PlayVideo("videos/World of Warcraft Wrath of the Lich King Intro Trailer.mp4");
+		PlayVideo("videos/Video03_Neva__neu (1).mp4");
 	if (App->input->GetKey(SDL_SCANCODE_F2) == KEY_DOWN)
 		Pause();
 	if (App->input->GetKey(SDL_SCANCODE_F3) == KEY_DOWN)
@@ -140,6 +145,8 @@ bool Video::Update(float dt)
 		DecodeVideo();
 		refresh = false;
 	}
+	if (quit && audio.finished && video.finished)
+		CloseVideo();
 
 	return true;
 }
@@ -352,6 +359,7 @@ void Video::CloseVideo()
 	SDL_CloseAudio();
 	audio_buf_index = 0;
 	audio_buf_size = 0;
+	quit = false;
 
 	LOG("Video closed");
 }
@@ -363,9 +371,12 @@ void Video::DecodeVideo()
 
 	if (!playing)
 		return;
-	if (video.pktqueue.GetPacket(&pkt) < 0)
+	if (video.pktqueue.GetPacket(&pkt, quit) < 0)
 	{
-		SDL_AddTimer(1, (SDL_TimerCallback)VideoCallback, this);
+		if (quit)
+			video.finished = true;
+		else 
+			SDL_AddTimer(1, (SDL_TimerCallback)VideoCallback, this);
 		return;
 	}
 
@@ -420,8 +431,14 @@ int Video::DecodeAudio()
 
 	if (!playing)
 		return -1;
-	if (audio.pktqueue.GetPacket(&pkt) < 0)
+
+	if (audio.pktqueue.GetPacket(&pkt, quit) < 0)
+	{
+		if (quit)
+			audio.finished = true;
 		return -1;
+	}
+
 
 	ret = avcodec_send_packet(audio.context, &pkt);
 	if (ret < 0)
@@ -500,7 +517,7 @@ int PacketQueue::PutPacket(AVPacket* pkt)
 	return 0;
 }
 
-int PacketQueue::GetPacket(AVPacket* pkt)
+int PacketQueue::GetPacket(AVPacket* pkt, bool block)
 {
 	AVPacketList *pkt_list;
 	int ret;
@@ -524,6 +541,11 @@ int PacketQueue::GetPacket(AVPacket* pkt)
 			*pkt = pkt_list->pkt;
 			av_free(pkt_list);
 			ret = 1;
+			break;
+		}
+		else if (block)
+		{
+			ret = -1;
 			break;
 		}
 		else {
@@ -563,4 +585,5 @@ void StreamComponent::Clear()
 
 	clock = 0;
 	stream_index = -1;
+	finished = false;
 }
