@@ -63,7 +63,7 @@ Also, we will use SDL to output the video and audio from the video file.
 The basic idea of reading a video file is to open each stream that we want to receive data from (video, audio, subtitles, etc) and start receiving packets that we will put on a queue for each type of data.
 While the packets are being received, we will start decoding and outputting the data depending on which type it is.
 
-<img src="Images/video_player_flow.png" height="400">
+<img src="Images/video_player_flow.png">
 
 To be able to perform this process, we need two basic structures, StreamComponent and PacketQueue.
 
