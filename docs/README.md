@@ -126,4 +126,10 @@ The basic idea is that we calculate at which second the audio and the video are,
 So how do we do it?
 Inside a decoded frame we can find what it's called a presentation time stamp (PTS). As the name indicates this is the time where the data of the frame should be outputted. 
 But this value is only a time stamp so what we need to do is divide it by the time base of the stream (fps or frequency). We will call this value the clock, having a clock for each stream.
-Now we can call the next video refresh on the delay between both clocks, successfully synchronising our video.
+Now we can call the next video refresh on the delay between both clocks, successfully synchronising our video. That's it, video player done.
+## Improvements
+This video player is nowhere near done, it needs a lot of work, but for a basic start point it's going to work. Future improvements that should be done to this are:
+ - Ability to read webm video files, with vp9 codec to make a royalty-free version. 
+ - Make the video player skip frames when the video is too far behind.
+ - Sync the video and the audio to internal clock, to avoid problems with different sound cards playing audio at different speed.
+ ## Exercises
