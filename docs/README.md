@@ -5,7 +5,7 @@ I am Axel Alavedra, student of the [Bachelor's Degree in Video Games by UPC at C
 A video player is basically a program that read, processes, and outputs the content of a video file.
 They have some basic functionalities like play, pause, stop, backforward and fastforward the video. Also, they implement some kind of progress bar which the user can click and skip the video to that position.
 
-<img src="https://cdn.neow.in/news/images/uploaded/2018/05/1527693941_vlc_media_player.jpg" width="400" height"400")
+<img src="https://cdn.neow.in/news/images/uploaded/2018/05/1527693941_vlc_media_player.jpg" width="400" height"400">
 
 In video games, video players don't need as many functionalities, they usually only have play, pause(not all) and skip the video. It's similar to going to the cinema and watching a movie, with the ability to skip it if you don't like it.
 
@@ -124,6 +124,6 @@ There are three different approaches on synchronising a video output.
 In this research i've decided to sync the video to the audio because it's a bit more simple and easy to understand than the other two.
 The basic idea is that we calculate at which second the audio and the video are, calculate the delay between them and then call the texture update on that delay time.
 So how do we do it?
-Inside a decoded frame we can find what it's called a presentation time stamp (PTS). As the name indicated this is the time where the data of the frame should be outputted. 
+Inside a decoded frame we can find what it's called a presentation time stamp (PTS). As the name indicates this is the time where the data of the frame should be outputted. 
 But this value is only a time stamp so what we need to do is divide it by the time base of the stream (fps or frequency). We will call this value the clock, having a clock for each stream.
 Now we can call the next video refresh on the delay between both clocks, successfully synchronising our video.
