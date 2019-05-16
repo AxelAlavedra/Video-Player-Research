@@ -26,11 +26,18 @@ The code in this research is based off [An ffmpeg and SDL Tutorial](http://drang
 Mp4, avi, webm, ... We all heard about this file types right, they are video files. But do we really know what they are?
 When I started this research I honestly had no idea what they were, all I knew is that every time I opened the file, a video magically would start playing on my selected video application.
 A video file is just a container, like a box, where the audio, video and metadata is packed in a single file.
+
+<img src="Images/video_container_simple.png" width="400" height="400">
+
 The metadata can be subtitles, author, title, synchronisation information, ...
 Also, the container packs the video and audio in a way that allows streaming the content, so we can play it without having loaded the whole file.
+
 As mentioned earlier, inside a container we have different kind of data, and this data can be in different formats. All this data formats are called codecs.
 For example, audio codecs would be mp3, aac, ogg, wav, ... 
 As for video codecs, we can find  H.264, H.265, Theora, VP8, VP9, ...
+
+<img src="Images/video_container_full.png" width="400" height="400">
+
 So this leads us to the conclusion that we have no idea what is actually inside a video file, as they can be in many different formats. 
 Thankfully, some video files indicate what codecs it may contain, for example mp4 files usually have mp3 or aac audio codecs and H.264 or H.265 video codecs. There's other video files that are more generic like avi, which pretty much can contain any type of video and audio codecs.
 Since codecs are such an important part of a video file, lets talk more in depth about them.
