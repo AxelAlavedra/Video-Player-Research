@@ -21,8 +21,6 @@ If you are using your own engine, and you want to have a video player you have t
 First option, outsource a video player like [Bink](http://www.radgametools.com/bnkmain.htm) from Rad game tools and implement it on your own engine.
 The second option is to create your own video player for your engine, and this is what this research is about.
 But before we start digging into the code, lets learn about some basics like what exactly is a video file.
-
-The code in this research is based off [An ffmpeg and SDL Tutorial](http://dranger.com/ffmpeg/ffmpeg.html)  by dranger and [FFplay](https://github.com/FFmpeg/FFmpeg/blob/master/fftools/ffplay.c) by Fabrice Bellard.
 ## Video file
 Mp4, avi, webm, ... We all heard about this file types right, they are video files. But do we really know what they are?
 When I started this research I honestly had no idea what they were, all I knew is that every time I opened the file, a video magically would start playing on my selected video application.
@@ -42,7 +40,6 @@ As for video codecs, we can find  H.264, H.265, Theora, VP8, VP9, ...
 So this leads us to the conclusion that we have no idea what is actually inside a video file, as they can be in many different formats. 
 Thankfully, some video files indicate what codecs it may contain, for example mp4 files usually have mp3 or aac audio codecs and H.264 or H.265 video codecs. There's other video files that are more generic like avi, which pretty much can contain any type of video and audio codecs.
 Since codecs are such an important part of a video file, lets talk more in depth about them.
-
 ## Codecs
 Have you ever tried to play a video on your computer and it just wouldn't work? Most likely codec problem and you had to look up on the internet to download and install it.
 But what are codecs exactly?
@@ -108,7 +105,6 @@ To fill the buffer first we will get a packet from the audio packet queue, decod
 <img src="Images/decode_audio.png">
 
 Since we have to meet a length of buffer that SDL gives us on the callback, we need to store this decoded and converted data into our own audio buffer, this way if the frame we decoded is larger than what SDL is asking us, we can give it a chunk of it and save the rest for later.
-
 ### Decoding video
 To output the video all we have to do is get a packet from the video packet queue, decode it, put it into a frame, and convert the frame to a readable format for SDL. Once we have the data converted, we put all this data into a SDL_Texture that will be rendered by the engine.
 
@@ -133,8 +129,8 @@ This video player is nowhere near done, it needs a lot of work, but for a basic 
  - Make the video player skip frames when the video is too far behind.
  - Sync the video and the audio to internal clock, to avoid problems with different sound cards playing audio at different speed.
  - The way pts is used is pretty much worng, it works on the type of file being used, but should be changed to enable other video formats.
- ### Exercises
- ## TODO 1: Open the codec
+### Exercises
+## TODO 1: Open the codec
  We need to find the decoder of the stream we are trying to open, after that we allocate our codec context and give it value with the parameters of the codec associated to the stream. After this we can open the codec.
  
  Result: Pressing F1 will show a green screen.
@@ -249,4 +245,17 @@ if (delay < 0.01)
 	
 SDL_AddTimer((Uint32)(delay * 1000 + 0.5), (SDL_TimerCallback)VideoCallback, this);
 ```
+### Useful links
+https://www.xiph.org/
+https://ffmpeg.org/
+https://developer.android.com/guide/topics/media/media-formats.html#recommendations
+https://www.get-metadata.com/file-info/sample-fmt
+https://www.gamasutra.com/view/news/170671/Indepth_Playing_with_video.php
+http://dranger.com/ffmpeg/tutorial01.html
+https://ffmpeg.org/doxygen/4.1/index.html
+https://www.cnblogs.com/welen/p/3666270.html
+https://github.com/FFmpeg/FFmpeg/blob/master/fftools/ffplay.c
+https://en.wikipedia.org/wiki/Video_file_format
+https://video.online-convert.com/
 
+The code in this research is based off [An ffmpeg and SDL Tutorial](http://dranger.com/ffmpeg/ffmpeg.html)  by dranger and [FFplay](https://github.com/FFmpeg/FFmpeg/blob/master/fftools/ffplay.c) by Fabrice Bellard.
