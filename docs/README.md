@@ -5,7 +5,7 @@ I am Axel Alavedra, student of the [Bachelor's Degree in Video Games by UPC at C
 A video player is basically a program that read, processes, and outputs the content of a video file.
 They have some basic functionalities like play, pause, stop, backforward and fastforward the video. Also, they implement some kind of progress bar which the user can click and skip the video to that position.
 
-<img src="Images/vlc_media_player.jpg" width="400" height"400">
+<img src="Images/vlc_media_player.jpg" width="400" height="400">
 
 In video games, video players don't need as many functionalities, they usually only have play, pause(not all) and skip the video. It's similar to going to the cinema and watching a movie, with the ability to skip it if you don't like it.
 
