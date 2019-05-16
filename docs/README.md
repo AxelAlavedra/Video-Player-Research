@@ -127,9 +127,56 @@ So how do we do it?
 Inside a decoded frame we can find what it's called a presentation time stamp (PTS). As the name indicates this is the time where the data of the frame should be outputted. 
 But this value is only a time stamp so what we need to do is divide it by the time base of the stream (fps or frequency). We will call this value the clock, having a clock for each stream.
 Now we can call the next video refresh on the delay between both clocks, successfully synchronising our video. That's it, video player done.
-## Improvements
+### Improvements
 This video player is nowhere near done, it needs a lot of work, but for a basic start point it's going to work. Future improvements that should be done to this are:
  - Ability to read webm video files, with vp9 codec to make a royalty-free version. 
  - Make the video player skip frames when the video is too far behind.
  - Sync the video and the audio to internal clock, to avoid problems with different sound cards playing audio at different speed.
- ## Exercises
+ - The way pts is used is pretty much worng, it works on the type of file being used, but should be changed to enable other video formats.
+ ### Exercises
+ ## TODO 1: Open the codec
+ We need to find the decoder of the stream we are trying to open, after that we allocate our codec context and give it value with the parameters of the codec associated to the stream. After this we can open the codec.
+ Result: Pressing F1 will show a green screen.
+ 
+ <img sr="Images/green_screen.png>
+ 
+ Solution:
+ ```
+    codec = avcodec_find_decoder(format->streams[stream_index]->codecpar->codec_id);
+	if (codec == NULL)
+		LOG("Unsupported codec for stream index %i", stream_index);
+
+	codec_context = avcodec_alloc_context3(codec);
+	if (avcodec_parameters_to_context(codec_context, format->streams[stream_index]->codecpar) < 0) {
+		LOG("Failed parameters to context for stream %i", stream_index);
+	}
+
+	if (avcodec_open2(codec_context, codec, NULL) < 0)
+	{
+		LOG("Error opening codec");
+	}
+```
+## TODO 2: Get the packets
+We need to read a frame from stream, putting it into a packet. After that we check the stream index of the packet and send it to the corresponding packet queue. Finish the loop unreferencing the packet.
+Result: Same as before, we are only putting packets on a queue.
+Solution: 
+```
+    ret = av_read_frame(player->format, &pkt);
+    if (ret < 0)
+    {
+        if (ret == AVERROR_EOF) LOG("Finished reading packets");
+        else LOG("Error reading packet");
+        player->quit = true;
+        break;
+    }
+
+    if (pkt.stream_index == player->video.stream_index) 
+    {
+        player->video.pktqueue.PutPacket(&pkt);
+    }
+    else if (pkt.stream_index == player->audio.stream_index)
+    {
+        player->audio.pktqueue.PutPacket(&pkt); /
+    }
+    av_packet_unref(&pkt);
+```
