@@ -31,7 +31,7 @@ Also, the container packs the video and audio in a way that allows streaming the
 As mentioned earlier, inside a container we have different kind of data, and this data can be in different formats. All this data formats are called codecs.
 For example, audio codecs would be mp3, aac, ogg, wav, ... 
 As for video codecs, we can find  H.264, H.265, Theora, VP8, VP9, ...
-![video_container](docs/Images/video_container_full.png)
+![video_container](Images/video_container_full.png)
 So this leads us to the conclusion that we have no idea what is actually inside a video file, as they can be in many different formats. 
 Thankfully, some video files indicate what codecs it may contain, for example mp4 files usually have mp3 or aac audio codecs and H.264 or H.265 video codecs. There's other video files that are more generic like avi, which pretty much can contain any type of video and audio codecs.
 Since codecs are such an important part of a video file, lets talk more in depth about them.
