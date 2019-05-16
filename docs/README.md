@@ -4,9 +4,10 @@ I am Axel Alavedra, student of the [Bachelor's Degree in Video Games by UPC at C
 ### What's a video player
 A video player is basically a program that read, processes, and outputs the content of a video file.
 They have some basic functionalities like play, pause, stop, backforward and fastforward the video. Also, they implement some kind of progress bar which the user can click and skip the video to that position.
-![Related image](https://cdn.neow.in/news/images/uploaded/2018/05/1527693941_vlc_media_player.jpg)
 
-In video games, video players don't need as many functionalities, they usually only have play, puause and skip the video.
+<img src="https://cdn.neow.in/news/images/uploaded/2018/05/1527693941_vlc_media_player.jpg" width="400" height"400")
+
+In video games, video players don't need as many functionalities, they usually only have play, pause(not all) and skip the video. It's similar to going to the cinema and watching a movie, with the ability to skip it if you don't like it.
 
 GIF HERE
 
@@ -62,7 +63,7 @@ Also, we will use SDL to output the video and audio from the video file.
 The basic idea of reading a video file is to open each stream that we want to receive data from (video, audio, subtitles, etc) and start receiving packets that we will put on a queue for each type of data.
 While the packets are being received, we will start decoding and outputting the data depending on which type it is.
 
-INSERT GIF HERE 
+<img src="Images/video_player_flow.png">
 
 To be able to perform this process, we need two basic structures, StreamComponent and PacketQueue.
 
