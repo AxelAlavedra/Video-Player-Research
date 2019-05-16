@@ -2,9 +2,9 @@
 #define _VIDEO_H_
 
 struct SDL_Texture;
-class AVFormatContext;
-class AVFrame;
-class AVCodecContext;
+struct AVFormatContext;
+struct AVFrame;
+struct AVCodecContext;
 struct AVStream;
 struct SwsContext;
 struct SwrContext;
