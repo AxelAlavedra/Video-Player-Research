@@ -139,7 +139,7 @@ This video player is nowhere near done, it needs a lot of work, but for a basic 
  
  Result: Pressing F1 will show a green screen.
  
- <img sr="Images/green_screen.png">
+ <img src="Images/green_screen.png">
  
  Solution:
  ```
@@ -211,7 +211,7 @@ Same as the last one but with the video queue and video component. There's a TOD
 
 Result: Video plays but really fast and out of sync with the audio.
 
-<img sr="Images/fast_video.png">
+<img src="Images/fast_video.png">
 
 Solution: 
 ```
