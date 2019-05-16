@@ -9,7 +9,7 @@ They have some basic functionalities like play, pause, stop, backforward and fas
 
 In video games, video players don't need as many functionalities, they usually only have play, pause(not all) and skip the video. It's similar to going to the cinema and watching a movie, with the ability to skip it if you don't like it.
 
-GIF HERE
+![](Images/cinematic_gif.gif)
 
 ### Why should I care?
 Cinematics are always a cool way to introduce the player to your game, tell a story or show some breath-taking scenes. You could create a cinematic in your game processing it in real-time and never need a video player. But, sometimes the scene may be to complex to be processed in real time or you don't want your development team to spend time creating a cinematic. 
