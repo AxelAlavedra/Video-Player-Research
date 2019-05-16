@@ -9,7 +9,7 @@ They have some basic functionalities like play, pause, stop, backforward and fas
 
 In video games, video players don't need as many functionalities, they usually only have play, pause(not all) and skip the video. It's similar to going to the cinema and watching a movie, with the ability to skip it if you don't like it.
 
-GIF HERE
+![](Images/cinematic_gif.gif)
 
 ### Why should I care?
 Cinematics are always a cool way to introduce the player to your game, tell a story or show some breath-taking scenes. You could create a cinematic in your game processing it in real-time and never need a video player. But, sometimes the scene may be to complex to be processed in real time or you don't want your development team to spend time creating a cinematic. 
@@ -126,4 +126,10 @@ The basic idea is that we calculate at which second the audio and the video are,
 So how do we do it?
 Inside a decoded frame we can find what it's called a presentation time stamp (PTS). As the name indicates this is the time where the data of the frame should be outputted. 
 But this value is only a time stamp so what we need to do is divide it by the time base of the stream (fps or frequency). We will call this value the clock, having a clock for each stream.
-Now we can call the next video refresh on the delay between both clocks, successfully synchronising our video.
+Now we can call the next video refresh on the delay between both clocks, successfully synchronising our video. That's it, video player done.
+## Improvements
+This video player is nowhere near done, it needs a lot of work, but for a basic start point it's going to work. Future improvements that should be done to this are:
+ - Ability to read webm video files, with vp9 codec to make a royalty-free version. 
+ - Make the video player skip frames when the video is too far behind.
+ - Sync the video and the audio to internal clock, to avoid problems with different sound cards playing audio at different speed.
+ ## Exercises
