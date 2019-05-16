@@ -136,9 +136,10 @@ This video player is nowhere near done, it needs a lot of work, but for a basic 
  ### Exercises
  ## TODO 1: Open the codec
  We need to find the decoder of the stream we are trying to open, after that we allocate our codec context and give it value with the parameters of the codec associated to the stream. After this we can open the codec.
+ 
  Result: Pressing F1 will show a green screen.
  
- <img sr="Images/green_screen.png>
+ <img sr="Images/green_screen.png">
  
  Solution:
  ```
@@ -158,7 +159,9 @@ This video player is nowhere near done, it needs a lot of work, but for a basic 
 ```
 ## TODO 2: Get the packets
 We need to read a frame from stream, putting it into a packet. After that we check the stream index of the packet and send it to the corresponding packet queue. Finish the loop unreferencing the packet.
+
 Result: Same as before, we are only putting packets on a queue.
+
 Solution: 
 ```
     ret = av_read_frame(player->format, &pkt);
@@ -180,3 +183,70 @@ Solution:
     }
     av_packet_unref(&pkt);
 ```
+## TODO 3: Decoding audio
+We need to get a packet from the packet queue, send that packet to the decoder and then receive a decoded frame.
+On the function to get a packet pass it the variable quit aswell.
+Result: Audio plays for some seconds.
+
+Solution:
+```
+if (audio.pktqueue.GetPacket(&pkt, quit) < 0)
+{
+	if (quit)
+		audio.finished = true;
+	return -1;
+}
+
+ret = avcodec_send_packet(audio.context, &pkt);
+if (ret < 0)
+{
+	LOG("Error sending audio pkt to decode");
+	return -1;
+}
+
+ret = avcodec_receive_frame(audio.context, audio.frame);
+```
+## TODO 4: Decoding video
+Same as the last one but with the video queue and video component. There's a TODO 4.1 where you have to call SDL_StartTimer.
+
+Result: Video plays but really fast and out of sync with the audio.
+
+<img sr="Images/fast_video.png">
+
+Solution: 
+```
+ret = avcodec_send_packet(video.context, &pkt);
+if (ret < 0)
+{
+	LOG("Error sending video packet for decoding");
+	return;
+}
+
+ret = avcodec_receive_frame(video.context, video.frame);
+4.1
+SDL_AddTimer(40, (SDL_TimerCallback)VideoCallback, this);
+```
+## TODO 5: Synchronisation
+Get the pts from the actual frame, set it as video clock and calculate the delay between video clock and audio clock. Remember to multiplicate the pts with the time_base of the stream, so get the time in seconds. Now send that delay to the SDL_AddTimer converted to ms. Do the same pts calculation for the audio clock in TODO 5.1
+
+Result: Video and audio are synchronised
+
+![](Images/cinematic_gif.gif)
+
+Solution:
+```
+double pts = video.frame->pts;
+if (pts == AV_NOPTS_VALUE)
+{
+	pts = video.clock +
+		(1.f / av_q2d(video.stream->avg_frame_rate)) / av_q2d(video.stream->time_base);
+}
+video.clock = pts;
+
+double delay = (video.clock*av_q2d(video.stream->time_base)) - (audio.clock*av_q2d(audio.stream->time_base));
+if (delay < 0.01)
+	delay = 0.01;
+	
+SDL_AddTimer((Uint32)(delay * 1000 + 0.5), (SDL_TimerCallback)VideoCallback, this);
+```
+
