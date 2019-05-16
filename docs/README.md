@@ -5,7 +5,7 @@ I am Axel Alavedra, student of the [Bachelor's Degree in Video Games by UPC at C
 A video player is basically a program that read, processes, and outputs the content of a video file.
 They have some basic functionalities like play, pause, stop, backforward and fastforward the video. Also, they implement some kind of progress bar which the user can click and skip the video to that position.
 
-<img src="https://cdn.neow.in/news/images/uploaded/2018/05/1527693941_vlc_media_player.jpg" width="400" height"400")
+<img src="https://cdn.neow.in/news/images/uploaded/2018/05/1527693941_vlc_media_player.jpg" width="400" height"400">
 
 In video games, video players don't need as many functionalities, they usually only have play, pause(not all) and skip the video. It's similar to going to the cinema and watching a movie, with the ability to skip it if you don't like it.
 
@@ -104,10 +104,15 @@ Once we have our packets being put on a queue, we want to start decoding and out
 To output the audio with SDL we need to open an audio device with a set of desired specs and also give it a function to callback.
 On this callback function, we will receive a buffer of data that we will have to fill, so SDL can read it and reproduce it.
 To fill the buffer first we will get a packet from the audio packet queue, decode it, put it into a frame, and convert the frame to a readable format for SDL.
+
+<img src="Images/decode_audio.png">
+
 Since we have to meet a length of buffer that SDL gives us on the callback, we need to store this decoded and converted data into our own audio buffer, this way if the frame we decoded is larger than what SDL is asking us, we can give it a chunk of it and save the rest for later.
 
 ### Decoding video
 To output the video all we have to do is get a packet from the video packet queue, decode it, put it into a frame, and convert the frame to a readable format for SDL. Once we have the data converted, we put all this data into a SDL_Texture that will be rendered by the engine.
+
+<img src="Images/decode_video.png">
 
 After we've done all of this, we should be ready to play our video right? We press the play button and everything is being outputted, all good, but then you notice how the video and the audio are not synchronised. Let's fix it.
 ### Synchronisation
@@ -119,6 +124,6 @@ There are three different approaches on synchronising a video output.
 In this research i've decided to sync the video to the audio because it's a bit more simple and easy to understand than the other two.
 The basic idea is that we calculate at which second the audio and the video are, calculate the delay between them and then call the texture update on that delay time.
 So how do we do it?
-Inside a decoded frame we can find what it's called a presentation time stamp (PTS). As the name indicated this is the time where the data of the frame should be outputted. 
+Inside a decoded frame we can find what it's called a presentation time stamp (PTS). As the name indicates this is the time where the data of the frame should be outputted. 
 But this value is only a time stamp so what we need to do is divide it by the time base of the stream (fps or frequency). We will call this value the clock, having a clock for each stream.
 Now we can call the next video refresh on the delay between both clocks, successfully synchronising our video.
