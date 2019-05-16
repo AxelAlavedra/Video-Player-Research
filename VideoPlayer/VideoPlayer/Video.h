@@ -59,7 +59,7 @@ public:
 	bool Pause();
 	void CloseVideo();
 
-	//Dont call this function yourself
+
 	int DecodeAudio();
 
 private:
@@ -77,10 +77,10 @@ public:
 	bool quit = false;
 	std::string file = "";
 
-	//Audio stream stuff
-	uint8_t audio_buf[(192000 * 3) / 2]; //I should move this to a struct or class...
-	unsigned int audio_buf_size = 0; //I should move this to a struct or class...
-	unsigned int audio_buf_index = 0; //I should move this to a struct or class...
+	//Audio stream stuff, this should probably not be here...
+	uint8_t audio_buf[(192000 * 3) / 2]; //buffer where we store the audio data
+	unsigned int audio_buf_size = 0;
+	unsigned int audio_buf_index = 0;
 
 private:
 	SDL_Texture* texture = nullptr;
