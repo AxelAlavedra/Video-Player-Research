@@ -26,10 +26,11 @@ The code in this research is based off [An ffmpeg and SDL Tutorial](http://drang
 Mp4, avi, webm, ... We all heard about this file types right, they are video files. But do we really know what they are?
 When I started this research I honestly had no idea what they were, all I knew is that every time I opened the file, a video magically would start playing on my selected video application.
 A video file is just a container, like a box, where the audio, video and metadata is packed in a single file.
-The metadata can be subtitles, author, title, synchronisation information, ...
-Also, the container packs the video and audio in a way that allows streaming the content, so we can play it without having loaded the whole file.
 
 <img src="Images/video_container_simple.png" width="400" height="400">
+
+The metadata can be subtitles, author, title, synchronisation information, ...
+Also, the container packs the video and audio in a way that allows streaming the content, so we can play it without having loaded the whole file.
 
 As mentioned earlier, inside a container we have different kind of data, and this data can be in different formats. All this data formats are called codecs.
 For example, audio codecs would be mp3, aac, ogg, wav, ... 
