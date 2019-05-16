@@ -1,0 +1,10 @@
+avcodec_find_decoder
+avcodec_alloc_context3
+avcodec_parameters_to_context
+avcodec_open2
+av_read_frame
+av_packet_unref
+avcodec_send_packet
+avcodec_receive_frame
+SDL_AddTimer
+av_q2d
