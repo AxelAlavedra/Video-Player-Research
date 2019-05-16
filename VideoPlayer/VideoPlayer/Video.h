@@ -20,7 +20,6 @@ struct PacketQueue {
 	SDL_mutex* mutex = nullptr;
 	SDL_cond* cond = nullptr;
 	bool paused = false;
-	bool finish = false;
 
 	void Init();
 	int PutPacket(AVPacket* pkt);
