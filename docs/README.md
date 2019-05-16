@@ -104,10 +104,15 @@ Once we have our packets being put on a queue, we want to start decoding and out
 To output the audio with SDL we need to open an audio device with a set of desired specs and also give it a function to callback.
 On this callback function, we will receive a buffer of data that we will have to fill, so SDL can read it and reproduce it.
 To fill the buffer first we will get a packet from the audio packet queue, decode it, put it into a frame, and convert the frame to a readable format for SDL.
+
+<img src="Images/decode_audio.png">
+
 Since we have to meet a length of buffer that SDL gives us on the callback, we need to store this decoded and converted data into our own audio buffer, this way if the frame we decoded is larger than what SDL is asking us, we can give it a chunk of it and save the rest for later.
 
 ### Decoding video
 To output the video all we have to do is get a packet from the video packet queue, decode it, put it into a frame, and convert the frame to a readable format for SDL. Once we have the data converted, we put all this data into a SDL_Texture that will be rendered by the engine.
+
+<img src="Images/decode_video.png">
 
 After we've done all of this, we should be ready to play our video right? We press the play button and everything is being outputted, all good, but then you notice how the video and the audio are not synchronised. Let's fix it.
 ### Synchronisation
