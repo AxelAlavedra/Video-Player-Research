@@ -2,7 +2,7 @@ I am [Axel Alavedra](https://es.linkedin.com/in/axel-alavedra-cabello-113666121)
 
 ## Introduction
 ### What's a video player
-A video player is basically a program that read, processes, and outputs the content of a video file.
+A video player is basically a program that reads, processes, and outputs the content of a video file.
 They have some basic functionalities like play, pause, stop, backforward and fastforward the video. Also, they implement some kind of progress bar which the user can click and skip the video to that position.
 
 <img src="Images/vlc_media_player.jpg" height="400">
