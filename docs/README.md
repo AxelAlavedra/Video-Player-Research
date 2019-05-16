@@ -247,15 +247,25 @@ SDL_AddTimer((Uint32)(delay * 1000 + 0.5), (SDL_TimerCallback)VideoCallback, thi
 ```
 ### Useful links
 https://www.xiph.org/
+
 https://ffmpeg.org/
+
 https://developer.android.com/guide/topics/media/media-formats.html#recommendations
+
 https://www.get-metadata.com/file-info/sample-fmt
+
 https://www.gamasutra.com/view/news/170671/Indepth_Playing_with_video.php
+
 http://dranger.com/ffmpeg/tutorial01.html
+
 https://ffmpeg.org/doxygen/4.1/index.html
+
 https://www.cnblogs.com/welen/p/3666270.html
+
 https://github.com/FFmpeg/FFmpeg/blob/master/fftools/ffplay.c
+
 https://en.wikipedia.org/wiki/Video_file_format
+
 https://video.online-convert.com/
 
 The code in this research is based off [An ffmpeg and SDL Tutorial](http://dranger.com/ffmpeg/ffmpeg.html)  by dranger and [FFplay](https://github.com/FFmpeg/FFmpeg/blob/master/fftools/ffplay.c) by Fabrice Bellard.
