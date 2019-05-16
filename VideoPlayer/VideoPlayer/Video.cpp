@@ -293,7 +293,7 @@ void Video::OpenStreamComponent(int stream_index)
 		wanted_spec.userdata = this;
 
 		if (SDL_OpenAudio(&wanted_spec, &spec) < 0) {
-			LOG("SDL_OpenAudio: %s\n", SDL_GetError());
+			LOG("SDL_OpenAudio: %s", SDL_GetError());
 		}
 
 		//Prepare conversion context
