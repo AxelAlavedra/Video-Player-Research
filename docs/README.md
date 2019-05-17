@@ -130,6 +130,7 @@ This video player is nowhere near done, it needs a lot of work, but for a basic 
  - Sync the video and the audio to internal clock, to avoid problems with different sound cards playing audio at different speed.
  - The way pts is used is pretty much worng, it works on the type of file being used, but should be changed to enable other video formats.
 ## Exercises
+Documentation link: https://ffmpeg.org/doxygen/4.1/index.html
 ### TODO 1: Open the codec
  We need to find the decoder of the stream we are trying to open, after that we allocate our codec context and give it value with the parameters of the codec associated to the stream. After this we can open the codec.
  
