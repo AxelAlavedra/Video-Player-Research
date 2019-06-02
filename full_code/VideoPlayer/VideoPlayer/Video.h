@@ -14,7 +14,8 @@ struct AVPacketList;
 #include "Module.h"
 
 struct PacketQueue {
-	AVPacketList *first_pkt, *last_pkt;
+	AVPacketList *first_pkt = nullptr;
+	AVPacketList *last_pkt = nullptr;
 	int nb_packets;
 	int size;
 	SDL_mutex* mutex = nullptr;

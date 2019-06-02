@@ -541,7 +541,7 @@ int PacketQueue::PutPacket(AVPacket* pkt)
 		return -1;
 
 	pkt_list->pkt = new_pkt;
-	pkt_list->next = NULL;
+	pkt_list->next = nullptr;
 
 	SDL_LockMutex(mutex);
 	if (!last_pkt)
@@ -577,7 +577,7 @@ int PacketQueue::GetPacket(AVPacket* pkt, bool block)
 		if (pkt_list) {
 			first_pkt = pkt_list->next;
 			if (!first_pkt)
-				last_pkt = NULL;
+				last_pkt = nullptr;
 			nb_packets--;
 			size -= pkt_list->pkt.size;
 			*pkt = pkt_list->pkt;
@@ -602,13 +602,13 @@ int PacketQueue::Clear()
 {
 	AVPacketList *pkt, *pkt1;
 	SDL_LockMutex(mutex);
-	for (pkt = first_pkt; pkt != NULL; pkt = pkt1) {
+	for (pkt = first_pkt; pkt != nullptr; pkt = pkt1) {
 		pkt1 = pkt->next;
 		av_packet_unref(&(pkt->pkt));
 		av_freep(&pkt);
 	}
-	last_pkt = NULL;
-	first_pkt = NULL;
+	last_pkt = nullptr;
+	first_pkt = nullptr;
 	nb_packets = 0;
 	size = 0;
 	SDL_UnlockMutex(mutex);
