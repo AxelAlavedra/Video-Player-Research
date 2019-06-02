@@ -2,7 +2,7 @@ I am [Axel Alavedra](https://es.linkedin.com/in/axel-alavedra-cabello-113666121)
 
 ## Introduction
 ### What's a video player
-A video player is basically a program that read, processes, and outputs the content of a video file.
+A video player is basically a program that reads, processes, and outputs the content of a video file.
 They have some basic functionalities like play, pause, stop, backforward and fastforward the video. Also, they implement some kind of progress bar which the user can click and skip the video to that position.
 
 <img src="Images/vlc_media_player.jpg" height="400">
@@ -31,7 +31,7 @@ A video file is just a container, like a box, where the audio, video and metadat
 The metadata can be subtitles, author, title, synchronisation information, ...
 Also, the container packs the video and audio in a way that allows streaming the content, so we can play it without having loaded the whole file.
 
-As mentioned earlier, inside a container we have different kind of data, and this data can be in different formats. All this data formats are called codecs.
+As mentioned earlier, inside a container we have different kind of data, more precisely this data we call it a Stream. Each stream of data is encoded with a specific codec.
 For example, audio codecs would be mp3, aac, ogg, wav, ... 
 As for video codecs, we can find  H.264, H.265, Theora, VP8, VP9, ...
 
@@ -130,6 +130,7 @@ This video player is nowhere near done, it needs a lot of work, but for a basic 
  - Sync the video and the audio to internal clock, to avoid problems with different sound cards playing audio at different speed.
  - The way pts is used is pretty much worng, it works on the type of file being used, but should be changed to enable other video formats.
 ## Exercises
+Documentation link: https://ffmpeg.org/doxygen/4.1/index.html
 ### TODO 1: Open the codec
  We need to find the decoder of the stream we are trying to open, after that we allocate our codec context and give it value with the parameters of the codec associated to the stream. After this we can open the codec.
  
