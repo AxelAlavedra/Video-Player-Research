@@ -285,7 +285,6 @@ void Video::OpenStreamComponent(int stream_index)
 		//Create texture where we will output the video.
 		texture = SDL_CreateTexture(App->render->renderer, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING,
 			dst_w, dst_h);
-		SDL_SetTextureColorMod(texture, 0, 0, 0);
 
 		video.pktqueue.Init();
 
